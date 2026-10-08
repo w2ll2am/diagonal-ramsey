@@ -27,7 +27,7 @@ and make sure `sysctl vm.max_map_count` is at least 1048576.
 
 ## Paper
 
-[`preprint/A-3.49-k-bound-for-diagonal-Ramsey-numbers-October-8-2026/main.pdf`](preprint/A-3.49-k-bound-for-diagonal-Ramsey-numbers-October-8-2026/main.pdf)
+[`preprint/main.pdf`](preprint/main.pdf)
 
 The proof builds on Lu and Wang's Lean development
 ([github.com/sichen-wang/diagonal-ramsey-numbers](https://github.com/sichen-wang/diagonal-ramsey-numbers), commit
