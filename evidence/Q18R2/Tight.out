@@ -1,0 +1,3 @@
+'DiagRamsey.diagonal_le_exp_z' depends on axioms: [propext, Classical.choice, Quot.sound]
+'DiagRamsey.diagonal_le_3p4987_pow' depends on axioms: [propext, Classical.choice, Quot.sound]
+'DiagRamsey.diagonal_le_3p4986238_pow' depends on axioms: [propext, Classical.choice, Quot.sound]

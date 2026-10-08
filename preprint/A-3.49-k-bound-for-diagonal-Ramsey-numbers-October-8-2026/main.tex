@@ -1,0 +1,1373 @@
+\documentclass[11pt]{article}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\usepackage{seqsplit}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\fh}{\widehat f}
+\newcommand{\cert}{\mathrm{CERT}}
+\newcommand{\feas}{\mathcal Q}
+\newcommand{\arrow}{\longrightarrow}
+\makeatletter
+\g@addto@macro{\UrlBreaks}{\do\_\do\.}
+\makeatother
+\urlstyle{tt}
+\newcommand{\lean}[1]{\nolinkurl{#1}}
+\newcommand{\repository}{\texttt{[repository URL to be inserted]}}
+\hypersetup{
+  pdftitle={A (3.49...) to the power k bound for diagonal Ramsey numbers},
+  pdfauthor={Zhipu Zhao, William Booth-Clibborn, Casper Schwahn}
+}
+
+\title{A $(3.49\ldots)^k$ bound for diagonal Ramsey numbers}
+\author{Zhipu Zhao \and William Booth-Clibborn \and Casper Schwahn}
+\date{8 October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The diagonal Ramsey number $R(k,k)$ is the least order of a complete graph such that every red/blue colouring
+of its edges contains a monochromatic clique of order $k$. We prove $R(k,k)\le b_*^k$ for all sufficiently large $k$,
+where $b_*=3.49862379380751\ldots$ is an explicit constant. In particular, $R(k,k)\le3.4986238^k<3.5^k$ for all sufficiently
+large $k$, improving the bound $3.69507^k$ of Lu and Wang. The classical bound $R(k,k)<4^k$ was proved by
+Erd\H{o}s and Szekeres in 1935. Its exponential base was first reduced by Campos, Griffiths, Morris and
+Sahasrabudhe in 2023. Our proof strengthens their algorithm by tracking a potential that gives greater
+weight to vertices with high red density. An explicit integral certifies each use of the resulting local step.
+We then use the improved off-diagonal bounds as inputs to further applications of the method.
+Induction on the number of vertices justifies these dependencies without assuming the bounds to be proved.
+The finite numerical inequalities are certified with exact arithmetic, and the complete argument, including
+the off-diagonal input, has been formalised in Lean.
+\end{abstract}
+
+\setcounter{tocdepth}{1}
+\tableofcontents
+\clearpage
+
+%======================================================================
+\section{Introduction}
+%======================================================================
+
+For positive integers $k$ and $l$, the Ramsey number $R(k,l)$ is the least $N$ such that every colouring of the edges
+of the complete graph $K_N$ in red and blue contains a red $K_k$ or a blue $K_l$. Erd\H{o}s and Szekeres~\cite{ES}
+proved $R(k,k)\le\binom{2k-2}{k-1}<4^k$ in 1935. For almost ninety years the base $4$ was not improved. Campos,
+Griffiths, Morris and Sahasrabudhe~\cite{CGMS} then showed $R(k,k)\le(4-\varepsilon)^k$ for a small fixed
+$\varepsilon>0$, by a new algorithm that builds large monochromatic ``books''. Gupta, Ndiaye, Norin and Wei~\cite{GNNW}
+optimised their method to reach about $3.8^k$. Lu and Wang~\cite{LW} recently obtained
+\[
+R(k,k)\le 3.69507^k\qquad\text{for all large }k,
+\]
+with a computer-assisted proof that is also checked in Lean.
+
+Our main result is the following.
+
+\begin{theorem}\label{thm:main}
+Put
+\[
+z^*=\frac{626184844701}{500000000000}=1.252369689402,\qquad b_*=e^{z^*}.
+\]
+There is an integer $K\ge1$ such that, for every integer $k\ge K$,
+\[
+R(k,k)\le b_*^k\le
+\left(\frac{34986238}{10000000}\right)^k<(7/2)^k.
+\]
+Here $b_*=3.49862379380751\ldots$ and $34986238/10000000=3.4986238$.
+There is also an absolute constant $C\ge1$ such that $R(k,k)\le C\,e^{z^*k}$ for every $k\ge1$.
+\end{theorem}
+
+The notation $3.49\ldots$ in the title denotes $b_*$, not the smaller decimal $3.49$.
+The proof gives a profile with exponent strictly below $z^*$. This strict gap lets us absorb the constant factor
+and obtain the eventual bound with base $b_*$ itself. The decimal upper bound $3.4986238$ is certified separately.
+The constant $C$ and the threshold $K$ are not effective, because
+Theorem~\ref{thm:envelope} uses a compactness argument.
+
+\paragraph{Formal verification and data.} We formalise the proof in Lean~4~\cite{Lean4} using
+Mathlib~\cite{Mathlib}, Lu and Wang's development~\cite{LWcode}, and its dependency
+\texttt{RamseyLean}~\cite{RamseyLean}. Section~\ref{sec:verification} explains the numerical checks, the modular
+Lean build, and the final statement and axiom checks. The paper, certificate and reproduction instructions will
+be available at \repository.
+
+\paragraph{What is new.} The proof follows the book algorithm of Campos, Griffiths, Morris and
+Sahasrabudhe~\cite{CGMS}, in the finite form developed by Lu and Wang~\cite{LW}. A monochromatic \emph{book}
+consists of a clique, called its spine, and a set of further vertices, called its pages, each joined to every
+spine vertex in the same colour. We change two parts of the analysis.
+
+\emph{The local step.} The book algorithm keeps a pair of vertex sets $(X,Y)$ with many red edges between them. At
+each step it either moves into the red neighbourhood of a vertex of $X$, or into its blue neighbourhood, or builds a
+blue book. Previous analyses track the red edge density between $X$ and $Y$. We track instead the potential
+\[
+\Phi_c(X,Y)=|X|^w\,|Y|\,\Big(\frac1{|Y|}\sum_{y\in Y}(g_y-c)_+^{\,s}\Big)^{r/s},
+\]
+where $g_y$ is the proportion of $X$ joined in red to $y$, the shift $c$ is slightly below the target density, and
+$w>0$, $r$ large, $s=\beta r$ with $0<\beta<1$, and $u_+=\max\{u,0\}$. Passing to subsets preserves the possible
+clique outcomes, so we may choose a pair that maximises this potential. Maximality controls both the column
+densities and the contribution of each row. When few rows have large blue degree,
+Theorem~\ref{thm:envelope} rules out simultaneous failure of the red and blue tests if the explicit integral
+$\cert(p,\mu,w,\beta,x)$ is negative. If many rows have large blue degree, we extract a blue book instead.
+These alternatives give the local step used in the induction.
+
+\emph{Feedback into the off-diagonal input.} The local step needs, as a stopping rule, an upper bound for $R(a,b)$
+for all pairs $(a,b)$, not only the diagonal. Lu and Wang supply such a bound, $\log R(a,b)\le \fh(a,b)+o(a+b)$, through
+an explicit function $\fh$. The bounds our algorithm produces are better than $\fh$ in a range of ratios $b/a$. We
+therefore use these better bounds as off-diagonal inputs. Section~\ref{sec:banks} proves that a finite list of
+such bounds may depend on each other, even cyclically, provided every dependency is applied to a strictly smaller
+colouring. The proof is an induction on the number of vertices, not an assumption that the improved bounds already
+hold. The finite collection used for Theorem~\ref{thm:main} contains all the bounds and comparisons needed to
+justify this induction.
+
+\paragraph{Outline.} Section~\ref{sec:prelim} fixes notation and states the input from Lu and Wang.
+Section~\ref{sec:local} proves the local step. Section~\ref{sec:closure} turns it into a bound for colourings that
+satisfy a stopping rule. Section~\ref{sec:banks} sets up profiles and banks and proves that a bank satisfying finitely
+many inequalities is valid. Section~\ref{sec:certificate} describes the certified bank and completes the proof of
+Theorem~\ref{thm:main}. Section~\ref{sec:verification} describes the verification.
+
+%======================================================================
+\section{Notation and the off-diagonal input}\label{sec:prelim}
+%======================================================================
+
+\subsection{Colourings}
+
+A \emph{host} is a red/blue colouring of the edges of a complete graph on a finite vertex set $V$; we write $|V|$ for
+its order. For disjoint finite sets $X,Y\subseteq V$, the red density between them is
+$d_R(X,Y)=e_R(X,Y)/(|X||Y|)$, where $e_R(X,Y)$ is the number of red edges with one end in $X$ and one in $Y$. The red
+density of $V$ itself is $d_R(V)=e_R(V)/\binom{|V|}2$, and $d_B(V)=1-d_R(V)$. For positive integers $a,b$, we write
+$V\supseteq(a,b)$ if $V$ contains a red $K_a$ or a blue $K_b$, and $N\arrow(a,b)$ if every host on $N$ vertices does.
+Thus $R(a,b)=\min\{N:N\arrow(a,b)\}$. The property $N\arrow(a,b)$ is monotone in $N$. We use the Erd\H{o}s--Szekeres
+bound
+\[
+\binom{a+b-2}{a-1}\arrow(a,b).
+\]
+Exchanging the two colours turns a host with red density $d$ into one with red density $1-d$, and a red $K_a$ or
+blue $K_b$ into a blue $K_a$ or red $K_b$. We call this \emph{renaming the colours}.
+
+\begin{lemma}[balanced cut]\label{lem:cut}
+Let $W$ be a host with $|W|\ge3$ and red density $d$. Then $W=X\sqcup Y$ with $d_R(X,Y)\ge d$ and
+$|X|,|Y|\ge|W|/3$.
+\end{lemma}
+
+\begin{proof}
+Average $d_R(X,W\setminus X)$ over all $X\subseteq W$ with $|X|=\lfloor|W|/2\rfloor$. Every pair of distinct vertices
+is separated by the same number of these sets, so the average of $e_R(X,W\setminus X)$ is a fixed multiple of
+$e_R(W)$, and the average of $|X||W\setminus X|$ is the same multiple of $\binom{|W|}2$. Hence some $X$ has
+$d_R(X,W\setminus X)\ge d$. Both parts have at least $\lfloor|W|/2\rfloor\ge|W|/3$ vertices when $|W|\ge3$.
+\end{proof}
+
+\subsection{The Lu--Wang source function}
+
+Lu and Wang~\cite{LW} define a function $f:[0,1]\to\R$ by
+\[
+f(t)=(1+t)\log(1+t)-t\log t+t\,e^{-t}P(t)\qquad(0\log0=0).
+\]
+Here $P$ is the piecewise cubic Hermite interpolant of $2280$ rational knots $0=t_0<\dots<t_{2279}=1$, with prescribed
+rational values and derivatives at the knots. On each interval between consecutive knots, $P$ is the cubic
+polynomial matching the values and first derivatives at both endpoints. Thus $P$ is $C^1$.
+These data are the file \texttt{data/source.json} of the Lu--Wang
+repository~\cite{LWcode} (SHA-256 \texttt{f3e4a4ea\ldots c08c}; Appendix~\ref{app:data}). The
+\emph{symmetric extension} of $f$ is
+\[
+\fh(\lambda)=\begin{cases}f(\lambda),&0<\lambda\le1,\\ \lambda f(1/\lambda),&\lambda\ge1,\end{cases}\qquad
+\fh(a,b)=a\,\fh(b/a)\quad(a,b>0).
+\]
+So $\fh(a,b)=\fh(b,a)$, and $\fh(a,b)$ is homogeneous of degree one.
+
+\begin{theorem}[Lu--Wang uniform source bound {\cite[eq.~(32), Lemma B.1]{LW}}]\label{thm:LW}
+For every $\varepsilon>0$ there is $C_\varepsilon\ge1$ such that, for all integers $a,b\ge1$ and $N$,
+\[
+N\ge C_\varepsilon\exp\big(\fh(a,b)+\varepsilon(a+b)\big)\quad\Longrightarrow\quad N\arrow(a,b).
+\]
+\end{theorem}
+
+Lu and Wang state and prove this in Lean as \texttt{RamseyCurrent.FiniteSourceBound}. Their theorem quantifies over
+all pairs, however unbalanced. Our Lean development imports their proof, not only their statement
+(Section~\ref{sec:verification}).
+
+\begin{lemma}[symmetric concavity]\label{lem:concave}
+$\fh$ is concave on $(0,\infty)$. Consequently, for every $t>0$ with $t\ne1$, $\fh$ is differentiable at $t$ and
+$\fh(s)\le\fh(t)+\fh'(t)(s-t)$ for all $s>0$. At $t=1$ the same inequality holds with any slope in
+$[f(1)-f'(1),\,f'(1)]$.
+\end{lemma}
+
+\begin{proof}
+Lu and Wang prove that $f$ is concave on $[0,1]$. For $\lambda>1$ the function $\lambda f(1/\lambda)$ is the
+perspective of a concave function, so it is concave on $[1,\infty)$. A function that is concave on $(0,1]$ and on
+$[1,\infty)$, and continuous at $1$, is concave on $(0,\infty)$ if its left derivative at $1$ is at least its right
+derivative there. The left derivative is $f'(1)$; the right derivative is $f(1)-f'(1)$. So the condition is
+$2f'(1)-f(1)\ge0$. Writing $v,d$ for the value and derivative of $P$ at $1$, one finds
+$e\,(2f'(1)-f(1))=2d-v$, which is a positive rational number for the Lu--Wang data. The tangent bounds are the usual
+supergradient inequalities of a concave function.
+\end{proof}
+
+The tangent bounds are what the certificate uses to compare $\fh$ with straight lines.
+
+%======================================================================
+\section{The local step}\label{sec:local}
+%======================================================================
+
+\subsection{A potential that weights high-density columns}
+
+We need a quantity that measures both the sizes of the two sets and the red density seen by each vertex of $Y$.
+The moment defined below gives more weight to vertices with unusually many red neighbours in $X$.
+Maximising the resulting potential will give the row and column inequalities used in the local step.
+
+Fix a host on $V$, and disjoint nonempty sets $X,Y\subseteq V$. For $v\in X$ and $y\in Y$ put $h_{vy}=1$ if $vy$ is red
+and $0$ otherwise. The \emph{column density} of $y$ and the \emph{row density} of $v$ are
+\[
+g_y=\frac1{|X|}\sum_{v\in X}h_{vy},\qquad \pi_v=\frac1{|Y|}\sum_{y\in Y}h_{vy}.
+\]
+Both average to $d_R(X,Y)$. Fix reals $w>0$, $0<\beta<1$ and $r>w$ with $s=\beta r>1$, so $1<s<r$. For a real shift
+$c$ let
+\[
+H_c(X,Y)=\Big(\frac1{|Y|}\sum_{y\in Y}(g_y-c)_+^{\,s}\Big)^{1/s},\qquad \Phi_c(X,Y)=|X|^w\,|Y|\,H_c(X,Y)^r,
+\]
+with $\Phi_c=0$ if $X$ or $Y$ is empty. We call $(X,Y)$ \emph{maximal} (for $c,w,r,s$) if $\Phi_c(X',Y)\le\Phi_c(X,Y)$
+for every nonempty $X'\subseteq X$ and $\Phi_c(X,Y')\le\Phi_c(X,Y)$ for every nonempty $Y'\subseteq Y$.
+
+The potential rewards large sets and large column densities. The moment of order $s$ weights the columns with high
+red density more than an average does. The weight $w$ sets the relative value of a vertex of $X$ against a vertex of
+$Y$.
+
+Throughout this section we write $N=|X|$, $M=|Y|$, $u_y=g_y-c$, $H=H_c(X,Y)$, and $\E_X,\E_Y$ for uniform averages.
+
+\begin{lemma}[columns at a maximal pair]\label{lem:columns}
+Suppose $(X,Y)$ is maximal and $H>0$. Then $u_y\ge(1-\beta)^{1/s}H>0$ for every $y\in Y$. In particular
+$\alpha:=\E_Yu_y\ge(1-\beta)^{1/s}H$.
+\end{lemma}
+
+\begin{proof}
+For nonempty $Y'\subseteq Y$ we have $\Phi_c(X,Y')=N^w|Y'|^{1-r/s}\big(\sum_{y\in Y'}(u_y)_+^s\big)^{r/s}$, and
+$1-r/s<0$. If some $u_{y_0}\le0$ and $M\ge2$, deleting $y_0$ keeps the sum and lowers $|Y'|$, which strictly increases
+$\Phi_c$; this contradicts maximality. If $M=1$ then $u_y=H>0$. Now let $M\ge2$, fix $y$ and put $a=u_y/H$, so that
+$u_y^s/\sum_{y'}u_{y'}^s=a^s/M$. Maximality at $Y\setminus\{y\}$, raised to the power $s/r$, gives
+\[
+1-\frac{a^s}M\le\Big(1-\frac1M\Big)^{1-s/r}\le1-\frac{1-\beta}M,
+\]
+by Bernoulli's inequality, since $1-s/r=1-\beta\in(0,1)$. Hence $a^s\ge1-\beta$.
+\end{proof}
+
+\begin{lemma}[rows at a maximal pair]\label{lem:rows}
+Suppose $(X,Y)$ is maximal and $H>0$. For $v\in X$ put
+\[
+V_v=\frac{\E_Y\big[u_y^{s-1}(h_{vy}-c)\big]}{H^s}.
+\]
+Then $\E_XV_v=1$, and for every $z\in[0,1]^X$ with $t=\E_Xz_v>0$,
+\begin{equation}\label{eq:support}
+\E_X[z_vV_v]\le t^{1-w/r}.
+\end{equation}
+In particular $V_v\ge1-w/r$ for every $v\in X$.
+\end{lemma}
+
+The variable $z_v$ allows a fractional choice of rows. Inequality~\eqref{eq:support} bounds the total
+contribution of such a choice by its size. The final assertion says that no row contributes much less than
+the average contribution, which is $1$.
+
+\begin{proof}
+Averaging $h_{vy}-c$ over $v$ gives $u_y$, so $\E_XV_v=\E_Y[u_y^s]/H^s=1$. For $z\in[0,1]^X$ let
+$b_y=\E_X[z_v(h_{vy}-c)]$ and define
+\[
+\Lambda(z)=t\,\Big(\frac{\|(b/t)_+\|_s}{H}\Big)^{r/w},\qquad \|v\|_s=\big(\E_Y|v_y|^s\big)^{1/s},
+\]
+with $\Lambda(0)=0$. The map $v\mapsto(\|v_+\|_s/H)^{r/w}$ is convex, because $v\mapsto\|v_+\|_s$ is convex and
+nonnegative and $r/w>1$. So $\Lambda$ is its perspective composed with a linear map, which is convex on $\{t>0\}$. Since
+$b/t$ is a convex combination of the fixed vectors $(h_{vy}-c)_y$, $\Lambda(z)=O(t)$, so $\Lambda$ extends continuously
+by $0$ and is convex on the whole cube $[0,1]^X$. At a vertex $z=\mathbf 1_{X'}$ with $X'\ne\emptyset$ we have
+$b/t=(g'_y-c)_y$, where $g'$ is the column density of $X'$, so
+$\Lambda(\mathbf 1_{X'})=(\Phi_c(X',Y)/\Phi_c(X,Y))^{1/w}\le1$ by maximality. A convex function on the cube is at most
+its largest vertex value, so $\Lambda\le1$, which says $\|b_+\|_s\le H\,t^{1-w/r}$. By H\"older's inequality,
+\[
+H^s\,\E_X[z_vV_v]=\E_Y\big[u_y^{s-1}b_y\big]\le\big\|u^{s-1}\big\|_{s/(s-1)}\,\|b_+\|_s=H^{s-1}\|b_+\|_s,
+\]
+using $u_y>0$ (Lemma~\ref{lem:columns}). This proves~\eqref{eq:support}. Taking $z=\mathbf 1-\epsilon e_v$ gives
+$1-\epsilon V_v/N\le(1-\epsilon/N)^{1-w/r}$, and letting $\epsilon\downarrow0$ gives $V_v\ge1-w/r$.
+\end{proof}
+
+\begin{remark}
+For $w\ge1$ one may use convexity of $\Lambda^w$ directly. For $0<w<1$ that function need not be convex, and taking the
+$1/w$-th power is what makes the argument work. Of the $918$ controls in the certified bank, $648$ have $w<1$.
+\end{remark}
+
+\subsection{An integral that rules out failure of both steps}
+
+We now define the number whose sign certifies a local step. The parameter $p$ is the target red density,
+$\mu$ controls the blue step, and $x$ is the fraction of the potential that a red step must retain.
+The parameters $w$ and $\beta$ are those of the potential.
+Fix $0<p<1$, $0<\mu<1$, $w>0$, $0<\beta<1$ and $x>0$. For $q\in(0,\mu]$ let
+\[
+A(q)=\frac{1-q}{q}\log\frac{p(1-q)^w}{x},\qquad B(q)=w\log\frac\mu q,\qquad U(q)=e^{\beta B(q)}=(\mu/q)^{w\beta}.
+\]
+Let $M(q)=B(q)$ if $A(q)\le B(q)$, and otherwise
+\[
+M(q)=p\,A(q)+\frac{1-p}\beta\log\frac{U(q)-p\,e^{\beta A(q)}}{1-p}.
+\]
+The logarithm in the second branch is defined only when its numerator is positive.
+Accordingly, the \emph{feasible set} $\feas=\feas(p,\mu,w,\beta,x)$ is the set of $q\in(0,\mu]$ with $A(q)\le B(q)$, or with
+$A(q)>B(q)$ and $p\,e^{\beta A(q)}<U(q)$. When $\feas\ne\emptyset$ we define
+\[
+\cert(p,\mu,w,\beta,x)=\int_0^1\sup_{q\in\feas}\Big[q\,M(q)+w\,q\,(1+\log t)\Big]\,dt.
+\]
+On $\feas$ one has $M(q)\le B(q)$, by concavity of the logarithm, so the integrand is bounded above. The statement
+$\cert<0$ includes the assertion that the integrand is integrable.
+
+\paragraph{Meaning.} In the application, $q$ is the blue degree of a row of $X$, divided by $|X|$.
+Passing to its blue neighbourhood retains a fraction $q^w$ of the factor $|X|^w$ in the potential.
+The quantities $A(q)$ and $B(q)$ describe the changes in the column moment needed for the red and blue steps,
+respectively. The function $M(q)$ bounds the average change allowed when both steps fail.
+Row maximality gives a second, averaged constraint after we sort rows by blue degree.
+Its contribution to the limiting inequality is $wq(1+\log t)$, where $t$ is the fraction of rows below
+the corresponding degree. For each $t$, the supremum permits any feasible degree $q$.
+If even this upper bound has negative integral, simultaneous failure is impossible.
+Theorem~\ref{thm:envelope} makes this argument precise.
+
+\subsection{The sharp envelope theorem}
+
+Let $\mathcal B$ be any simple graph on $V$. For $i\in X$ let $B_i=\{j\in X:ij\in\mathcal B\}$, $q_i=|B_i|/N$, and let
+$b_i(y)$ be the proportion of $B_i$ joined in red to $y$ (with $b_i(y)=0$ if $B_i=\emptyset$). In the application,
+$\mathcal B$ is the blue graph and $B_i$ is the blue neighbourhood of $i$ in $X$.
+
+We say row $i$ with $q_i>0$ \emph{fails blue} if
+\begin{equation}\label{eq:B}
+\sum_{y\in Y}(b_i(y)-c)_+^{\,s}<\Big(\frac\mu{q_i}\Big)^{w\beta}\sum_{y\in Y}(u_y)_+^{\,s},
+\end{equation}
+and row $i$ \emph{fails shifted-red} if
+\begin{equation}\label{eq:R}
+\sum_{y\in Y:\ h_{iy}=1}\Big((1-q_i)u_y-q_i\big(b_i(y)-g_y\big)\Big)_+^{\,s}
+<(1-q_i)^{s-w\beta}\,x^\beta\,\pi_i^{\,1-\beta}\sum_{y\in Y}(u_y)_+^{\,s}.
+\end{equation}
+
+\begin{theorem}[sharp envelope]\label{thm:envelope}
+Let $0<p<1$, $0<\mu<1$, $w>0$, $0<\beta<1$ and $0<x<\min\{p,(1-\mu)^w\}$. Suppose $\feas\ne\emptyset$ and
+$\cert(p,\mu,w,\beta,x)<0$. Then there are $\eta,\tau,\zeta>0$ and $R_0$ with $R_0>w$ and $\beta R_0>1$ such that,
+for every $r\ge R_0$, there is no configuration consisting of a host on $V$, a simple graph $\mathcal B$ on $V$,
+disjoint nonempty $X,Y\subseteq V$ and a real $c$ with $|c-p|\le\eta$, such that
+\begin{enumerate}[label=(\roman*)]
+\item $g_y>c$ for every $y\in Y$;
+\item $(X,Y)$ is maximal for $\Phi_c$ with parameters $w$, $r$, $s=\beta r$;
+\item every $i\in X$ with $q_i>0$ fails blue;
+\item there is $X_g\subseteq X$ with $|X\setminus X_g|\le\zeta|X|$ such that every $i\in X_g$ has $q_i\le\mu+\tau$
+and fails shifted-red.
+\end{enumerate}
+\end{theorem}
+
+In words: at a maximal pair whose shift is close to $p$, some row of positive blue degree passes the blue test, or more
+than a $\zeta$-fraction of the rows either have large blue degree or pass the shifted-red test.
+
+The proof is by contradiction. If both tests could fail for arbitrarily large $r$, we would obtain a sequence
+of configurations with vanishing exceptional proportions. In the limit, maximality and the fact that the blue
+graph is undirected give an averaged inequality incompatible with $\cert<0$.
+We first state this limit argument, then recover the finite statement.
+
+\begin{proposition}[limit form]\label{prop:limit}
+Fix $p,\mu,w,\beta,x$ as in Theorem~\ref{thm:envelope}. Suppose that for each $j$ we have a configuration with
+parameter $r_j$ satisfying (i)--(iv) of Theorem~\ref{thm:envelope} with $\tau=\tau_j$ and $\zeta=\zeta_j$, where
+$r_j\to\infty$, $r_j>w$, $\beta r_j>1$, $\tau_j\to0$, $\zeta_j\to0$, the shifts $c_j$ and the moments $H_j$ are
+bounded, and $\liminf_jd_j\ge p$ where $d_j=d_R(X_j,Y_j)$. Then, if $\feas\ne\emptyset$ and the integrand of $\cert$ is
+integrable, $\cert(p,\mu,w,\beta,x)\ge0$.
+\end{proposition}
+
+\begin{proof}[Proof of Theorem~\ref{thm:envelope} from Proposition~\ref{prop:limit}]
+Suppose the conclusion fails. Then for every $j\ge1$ the choice $\eta=\tau=\zeta=1/j$ and
+$R_0=\max\{j,w+1,2/\beta\}$ admits some $r_j\ge R_0$ and a configuration with $|c_j-p|\le1/j$ satisfying (i)--(iv).
+Then $|c_j|\le1+p$, $H_j\le\max_yu_y\le1-c_j\le2$, and $d_j=c_j+\E_Yu_y>c_j\ge p-1/j$. So
+Proposition~\ref{prop:limit} applies and gives $\cert\ge0$, a contradiction.
+\end{proof}
+
+The proof has four main parts. We first bound what one row can contribute when both tests fail.
+We then show that almost all rows have the same limiting red density.
+Next we use row maximality and the symmetry of the blue graph to bound the average contribution from below.
+Finally we pass to the limit and compare the result with the integral defining $\cert$.
+We give all eight steps below.
+
+The rest of this subsection proves Proposition~\ref{prop:limit}. Constants hidden in $O(\cdot)$ depend only on
+$\beta$, $w$ and the bounds on $|c|$ and $H$. Fix one configuration. Since all $u_y>0$, put $a_y=u_y/H$, so $\E_Ya_y^s=1$,
+and let $\nu$ be the probability measure on $Y$ with $\nu_y=a_y^s/M$. Put $m_i=\E_\nu h_{iy}$ and, for $q_i>0$,
+$Z_i(y)=(b_i(y)-g_y)/u_y$. Since $u_y+(b_i(y)-g_y)=b_i(y)-c$,
+\[
+\E_\nu(1+Z_i)_+^s=\frac{\sum_y(b_i(y)-c)_+^s}{\sum_yu_y^s},
+\]
+\[
+\E_\nu\Big[h_{iy}\big((1-q_i)-q_iZ_i\big)_+^s\Big]=\frac{\sum_{y:h_{iy}=1}\big((1-q_i)u_y-q_i(b_i(y)-g_y)\big)_+^s}{\sum_yu_y^s}.
+\]
+So~\eqref{eq:B} says $\E_\nu(1+Z_i)_+^s<U_i:=(\mu/q_i)^{w\beta}$, and~\eqref{eq:R} says
+$\E_\nu[h_{iy}((1-q_i)-q_iZ_i)_+^s]<(1-q_i)^{s-w\beta}x^\beta\pi_i^{1-\beta}$. For $q_i=0$ the left side
+of~\eqref{eq:R} is $m_i$.
+
+\paragraph{Step 1: an optimisation on two parts of $Y$.} For a fixed row, split $Y$ according to whether its
+edge to the row vertex is red. Jensen's inequality reduces the moment constraints to one number on each part.
+Let $0<m<1$, $s>1$, $U>0$ and $t_U=U^{1/s}$. Consider the supremum of
+$mz_{\rm in}+(1-m)z_{\rm out}$ subject to $z_{\rm in}\ge L$ and $m(1+z_{\rm in})_+^s+(1-m)(1+z_{\rm out})_+^s<U$. Raising
+a coordinate below $-1$ to $-1$ keeps the constraint and raises the objective, so we may write
+$\mathcal A=1+z_{\rm in}\ge0$ and $\mathcal C=1+z_{\rm out}\ge0$. By Jensen, $m\mathcal A+(1-m)\mathcal C<t_U$. If
+$L\le t_U-1$, the supremum is $t_U-1$. The constraint is strict, so these boundary values are suprema, not maxima.
+If $L>t_U-1$, then on the boundary of the closed constraint
+$\mathcal C=((U-m\mathcal A^s)/(1-m))^{1/s}$ the objective has derivative $m[1-(\mathcal A/\mathcal C)^{s-1}]<0$ in
+$\mathcal A$. Thus, when the strict constraint is feasible, the supremum is approached with $\mathcal A=1+L$
+and $\mathcal C$ tending to its boundary value from below. It equals
+\begin{equation}\label{eq:twocell}
+mL+(1-m)\Big[\Big(\frac{U-m(1+L)^s}{1-m}\Big)^{1/s}-1\Big],
+\end{equation}
+The feasible set in this branch is nonempty exactly when $U>m(1+L)^s$.
+
+For a row $i\in X_g$ with $q_i,m_i>0$, Jensen's inequality on the red cell $\{h_{iy}=1\}$ (of $\nu$-mass $m_i$),
+applied to~\eqref{eq:R}, gives $m_i((1-q_i)-q_iz_{\rm in})_+^s<(1-q_i)^{s-w\beta}x^\beta\pi_i^{1-\beta}$, where
+$z_{\rm in}=\E_\nu[Z_i\mid h_{iy}=1]$. Taking $s$-th roots, and using $(s-w\beta)/s=1-w/r$ and $\beta/s=1/r$,
+\begin{equation}\label{eq:L}
+z_{\rm in}>L_i:=\frac{(1-q_i)-(1-q_i)^{1-w/r}x^{1/r}(\pi_i^{1-\beta}/m_i)^{1/s}}{q_i},\qquad
+q_irL_i=(1-q_i)\,r\big(1-e^{\ell_i/r}\big),
+\end{equation}
+with $\ell_i=\log x-w\log(1-q_i)+\beta^{-1}\big[(1-\beta)\log\pi_i-\log m_i\big]$. If $\pi_i,m_i\to d$ and
+$q_i\to q$, then $rL_i\to A_d(q)$, where $A_d$ is $A$ with $p$ replaced by $d$. Jensen on both cells, applied
+to~\eqref{eq:B}, gives the constraint of the two-cell problem with $U=U_i$, with $z_{\rm in}$ as above and
+$z_{\rm out}=\E_\nu[Z_i\mid h_{iy}=0]$; its objective is $\E_\nu Z_i$.
+
+\paragraph{Step 2: rows and columns concentrate.} Lemma~\ref{lem:columns} gives $a_y^s\ge1-\beta$. With
+$K_\beta=-\log(1-\beta)/\beta$ and $\alpha=\E_Yu_y$, this gives $e^{-K_\beta/r}\le\alpha/H\le1$, where the upper bound is
+the power-mean inequality. Maximality under restricting $Y$ to a subset $A$ of proportion $\theta$ gives
+$\E_Y[a_y^s\mathbf 1_A]\le\theta^{1-s/r}$; applied to $A=\{a_y\ge t\}$ it gives $\Prob_Y(a_y\ge t)\le t^{-r}$ for
+$t\ge1$. Let $J=\E_Ya^{s-1}\le1$ and $P_+=\E[(a-1)_+a^{s-1}]$. The layer-cake formula with the tail bound gives
+\[
+P_+\le\int_1^\infty\big(st^{s-1}-(s-1)t^{s-2}\big)t^{-r}\,dt=\frac r{(r-s)(r-s+1)}=O(1/r),
+\]
+and $1-J=\E[a^{s-1}(a-1)]\le P_+$.
+
+Let $f_i=\E_Y[a^{s-1}h_{iy}]=HV_i+cJ$. Then $\E_Xf=H+cJ$. By Lemma~\ref{lem:rows}, $f_i-\E f\ge-Hw/r$, and since
+$f-\E f$ has mean zero, $\E_X|f_i-\E f|\le2Hw/r$. Also $m_i=\E_Y[a^sh_{iy}]$, so
+$|m_i-f_i|\le\E_Y[a^{s-1}|a-1|]=2P_+-(1-J)\le2P_+$. Finally $\E f-d=(H-\alpha)-c(1-J)$. Together,
+\begin{equation}\label{eq:C1}
+\E_X|m_i-d|=O(1/r).
+\end{equation}
+For the ordinary row densities, maximality and the power-mean inequality give
+$\Prob_X(\pi_i\ge c+Ht)\le t^{-r/w}$ for $t>1$: the set $A$ of such rows has $H_c(A,Y)\ge Ht$, so
+$(|A|/N)^wt^r\le1$. Integrating, $\E(\pi-c-H)_+\le Hw/(r-w)$, and since $\E\pi=c+\alpha$,
+\begin{equation}\label{eq:C2}
+\E_X|\pi_i-d|\le\frac{2Hw}{r-w}+2(H-\alpha)=O(1/r).
+\end{equation}
+
+\paragraph{Step 3: the averaged constraint from row maximality.} We sort rows by blue degree and apply
+\eqref{eq:support} to initial portions of this ordering.
+Let $\gamma=1-w/r$ and let $Q$ be the increasing quantile function of the law of $q_i$
+under uniform $i\in X$, with distribution function $F(z)=\Prob(q\le z)$. Thus $Q(t)$ is the blue degree at
+proportion $t$ in the ordered list, with the usual quantile interpretation at atoms. Integrating a function
+of $Q(t)$ over $0<t<1$ is the same as averaging that function of $q_i$ over the rows.
+The ordering lets us use row maximality to control every initial portion of the list, not just one row.
+By the layer-cake formula and~\eqref{eq:support}
+applied to $z_i=\mathbf 1[q_i\le z]$,
+\[
+\E[qV]=1-\int_0^1\E\big[V\mathbf 1_{q\le z}\big]\,dz\ge1-\int_0^1F(z)^\gamma dz=\int_0^1Q(t)\,\gamma t^{\gamma-1}\,dt.
+\]
+Subtracting $\E q=\int_0^1Q$,
+\begin{equation}\label{eq:D1}
+r\,\E[q(V-1)]\ge\int_0^1Q(t)\,k_r(t)\,dt,\qquad k_r(t)=r\big[(1-w/r)t^{-w/r}-1\big]\longrightarrow-w(1+\log t),
+\end{equation}
+with convergence in $L^1(0,1)$ (dominated by $C_wt^{-1/2}(1+|\log t|)$ for $r\ge2w$).
+
+\paragraph{Step 4: symmetry of the blue graph.} Averaging over blue neighbours can be done in either order,
+because $\mathcal B$ is undirected: $j\in B_i$ if and only if $i\in B_j$. Hence, for
+each $y$, $\E_i[q_ib_i(y)]=N^{-2}\sum_i\sum_{j\in B_i}h_{jy}=\E_j[q_jh_{jy}]$. Since
+$\sum_y\nu_y(h_{iy}-g_y)/u_y=V_i-1$, this gives
+\begin{equation}\label{eq:ST}
+\E_X\big[q_i\,\E_\nu Z_i\big]=\E_X\big[q_i(V_i-1)\big].
+\end{equation}
+Both~\eqref{eq:D1} and~\eqref{eq:ST} hold over all rows, including the exceptional ones.
+
+\paragraph{Step 5: small blue degrees do not occur.} Call a row \emph{regular} if $|\pi_i-d|$ and $|m_i-d|$ are at most
+$\eta_j$, where $\eta_j\to0$ slowly enough that, by~\eqref{eq:C1}, \eqref{eq:C2} and Markov's inequality,
+the proportion of non-regular rows tends to $0$. Let $\kappa=\log(p/x)>0$. For regular rows in $X_g$ with
+$0<q\le\delta_0$ and $j$ large, $\ell\le-\kappa/2$ and $m\ge p/2$, so~\eqref{eq:L} gives $q\,r\,L\ge\kappa/8$. On the
+other hand, the blue constraint on the red cell gives $m(1+z_{\rm in})^s<U$, so
+\[
+q\,r\,z_{\rm in}<q\,r\big(e^{b/r}-1\big)\le q\,b\,e^{b/r},\qquad b=w\log(\mu/q)-\beta^{-1}\log m,
+\]
+and the right side is at most $C\sqrt q\,(1+\log(1/q))$ for $r\ge2w$, $m\ge p/2$ and $q\le\mu$. Since $z_{\rm in}>L$,
+rows with $0<q<\delta$ cannot occur, for a fixed small $\delta>0$. At $q=0$, \eqref{eq:R} reads
+$m<x^\beta\pi^{1-\beta}$, which is impossible when $\pi$ and $m$ are close to $d\ge p-o(1)>x$. Hence every weak limit
+of the laws of $q_i$ is supported on $[\delta,\mu]$; the upper end comes from $q_i\le\mu+\tau_j$ on $X_g$.
+Such weakly convergent subsequences exist because these are probability measures on the compact interval $[0,1]$.
+The exceptional rows have vanishing proportion, so they contribute no mass outside $[\delta,\mu]$ in the limit.
+This support restriction keeps the logarithms in the limiting argument away from $q=0$.
+
+\paragraph{Step 6: the limiting envelope.} Pass to a subsequence with $d_j\to d_*\in[p,1]$.
+The estimates in Step~2 make both $\pi_i$ and $m_i$ converge in probability to this same density.
+The remaining variable is the blue degree $q$. We now find the largest scaled row gain compatible with a
+given limiting value of $q$.
+Combining
+$z_{\rm in}>L$ with the blue constraint gives $m(1+L)_+^s<U$. At a regular limit point $q\in[\delta,\mu]$ we get
+$rL\to A_{d_*}(q)$ and $(1+L)^s\to e^{\beta A_{d_*}(q)}$, so
+\begin{equation}\label{eq:F}
+d_*\,e^{\beta A_{d_*}(q)}\le U(q).
+\end{equation}
+The inequality is non-strict because a strict inequality can become equality in a limit.
+In logarithms, \eqref{eq:F} says $T_{d_*}(q)\le\log x$, where
+$T_d(q)=\big(1+\frac q{\beta(1-q)}\big)\log d+w\log(1-q)+\frac{wq}{1-q}\log\frac q\mu$. Since
+$T_d'(q)=[\beta^{-1}\log d+w\log(q/\mu)]/(1-q)^2\le0$ for $d\le1$ and $q\le\mu$, we get $T_{d_*}(\mu)\le\log x$, that is,
+\[
+d_*\le\big[x/(1-\mu)^w\big]^{1/(1+\mu/(\beta(1-\mu)))}<1,
+\]
+using $x<(1-\mu)^w$. For $q$ in a compact subset of $(0,1)$ and $\pi,m\to d\in(0,1)$, $r$ times the two-cell
+supremum~\eqref{eq:twocell} converges to $M_d(q)$, where $M_d$ is $M$ with $p$ replaced by $d$. In the non-binding case
+$r(t_U-1)\to w\log(\mu/q)=B(q)$. In the binding case $m\,rL\to dA_d$ and
+$r[((U-m(1+L)^s)/(1-m))^{1/s}-1]\to\beta^{-1}\log\frac{U-de^{\beta A_d}}{1-d}$. The two branches agree when $A_d=B$.
+At the boundary $U=de^{\beta A_d}$ the scaled outside-cell term tends to $-\infty$, and outside the feasible set
+$\feas_d$ (defined with $d$ in place of $p$) there are eventually no feasible parameters. So the limit is upper
+semicontinuous with values in $[-\infty,\infty)$, where we set $M_d=-\infty$ off $\feas_d$.
+
+\paragraph{Step 7: passage to the limit.} Jensen applied to~\eqref{eq:B} gives $(1+\E_\nu Z)^s<U$, so for $q>0$,
+\[
+q\,r\,\E_\nu Z\le q\,r\big[(\mu/q)^{w/r}-1\big],
+\]
+which is at most $w\mu^{w/r}q^{1-w/r}\log(\mu/q)$ for $q\le\mu$, uniformly bounded for $r\ge2w$, and is $\le0$ for
+$q>\mu$. Rows with $q=0$ contribute $0$. So $q\,r\,\E_\nu Z$ has a common upper bound $H_0$ over all rows.
+On regular rows in $X_g$ it is also at most $q$ times $r$ times the two-cell supremum.
+Define a dominating random variable $W_j$ by taking the smaller of these two bounds on those rows, and $H_0$
+on the exceptional rows. The latter have vanishing proportion.
+
+Take a subsequence realising the $\limsup$ and then a weakly convergent subsequence of the joint laws of
+$(q,m,\pi,\iota)$, where $\iota$ indicates that the row is regular and lies in $X_g$.
+These laws live on a compact metric space. Skorokhod's theorem represents them on one probability space with
+almost-sure convergence, while preserving their distributions and hence their expectations.
+The limits have $m=\pi=d_*$ and $\iota=1$. In particular, almost every coupled row is non-exceptional for all
+sufficiently large $j$, so Step~6 bounds the pointwise upper limit of $W_j$ by $qM_{d_*}(q)$.
+Applying Fatou's lemma to the nonnegative variables $H_0-W_j$ now gives an upper bound on the limiting
+expectation. Thus
+\[
+\limsup_j\E_X\big[q\,r\,\E_\nu Z\big]\le\int_0^1Q(t)\,M_{d_*}(Q(t))\,dt,
+\]
+where $Q$ is the quantile of the limit law of $q$. This integral is simply the expectation of the limiting
+envelope, written in terms of quantiles.
+
+For the lower bound we retain the averaged information from row maximality and blue-graph symmetry.
+Equations~\eqref{eq:ST} and~\eqref{eq:D1} give
+$\E_X[q\,r\,\E_\nu Z]=r\,\E[q(V-1)]\ge\int_0^1Q_jk_{r_j}$. The quantiles $Q_j$ converge to $Q$ at every continuity point
+of $Q$ and are bounded by $1$, and $k_{r_j}\to-w(1+\log t)$ in $L^1$.
+The monotone function $Q$ has at most countably many discontinuities. Dominated convergence handles the
+product of $Q_j-Q$ with the limiting integrable kernel, while the $L^1$ convergence of the kernels handles
+the remaining error. Therefore
+\[
+\liminf_j\E_X\big[q\,r\,\E_\nu Z\big]\ge-w\int_0^1Q(t)(1+\log t)\,dt.
+\]
+Together,
+\begin{equation}\label{eq:N}
+\int_0^1\Big[Q(t)\,M_{d_*}(Q(t))+w\,Q(t)(1+\log t)\Big]dt\ge0,
+\end{equation}
+and in particular the integral is finite. This is the constraint that will contradict a negative certificate:
+the limiting degree distribution must satisfy it, even though no contradiction need hold for an individual row.
+
+\paragraph{Step 8: from the limit to $\cert$.} Fix $q\in(0,\mu]$. On the binding branch put $E=e^{\beta A}$ and
+$z=(U-dE)/(1-d)$. There $E>U>z>0$. Differentiating $M=dA+\frac{1-d}\beta\log z$ gives
+$\beta\,\partial_dM=\log(E/z)+1-E/z\le0$ at fixed $A$ and $\partial_AM=d(1-E/z)<0$, while $\partial_dA_d=(1-q)/(qd)>0$.
+So $M_d(q)$ decreases in $d$. On the non-binding branch $M_d=B$, and the branches meet continuously. Also
+$de^{\beta A_d(q)}$ increases in $d$, so $\feas_d$ shrinks as $d$ grows. Since $d_*\ge p$, we get $\feas_{d_*}\subseteq\feas$
+and $M_{d_*}\le M$ on $\feas_{d_*}$. Since~\eqref{eq:N} is finite, $Q(t)\in\feas_{d_*}$ for almost every $t$. For such
+$t$,
+\[
+Q(t)M_{d_*}(Q(t))+wQ(t)(1+\log t)\le\sup_{q\in\feas}\big[qM(q)+wq(1+\log t)\big].
+\]
+Integrating gives $\cert\ge0$. This proves Proposition~\ref{prop:limit}, and hence Theorem~\ref{thm:envelope}. \qed
+
+\begin{remark}
+Two points of the proof deserve emphasis. A single row can fail both tests at the parameters we use; the contradiction
+comes only from the averaged inequality~\eqref{eq:N}, that is, from the drift~\eqref{eq:D1} together with
+stationarity~\eqref{eq:ST}. And Step~5 is essential: allowing $q=0$ in the supremum would make the integrand nonnegative
+and destroy every certificate.
+\end{remark}
+
+%======================================================================
+\section{Closing the induction inside one host}\label{sec:closure}
+%======================================================================
+
+This section turns the local step into a clique outcome for a pair $(X,Y)$ inside a host.
+We assume an off-diagonal bound on proper subsets, so that we can stop when a subset is already large enough
+to contain one of the required cliques. Otherwise we pass to a red neighbourhood, a blue neighbourhood,
+or the pages of a blue book. Each move reduces a clique target and retains enough potential to continue.
+The induction follows Lu and Wang~\cite[Lemma A.1]{LW}, with their density potential replaced by $\Phi_c$.
+
+\begin{definition}[stopping rule]
+For reals $C\ge1$, $\hat x,\hat y\in(0,1)$ and an integer $\ell\ge1$, a host on $V$ satisfies
+$\mathrm{Stop}(C,\hat x,\hat y,\ell)$ if, for every integer $a\ge1$, every proper subset $Z\subsetneq V$ with
+$|Z|\ge C\hat x^{-a}\hat y^{-\ell}$ contains a red $K_a$ or a blue $K_\ell$.
+\end{definition}
+
+\begin{theorem}[finite-host closure]\label{thm:closure}
+Let $0<p<1$, $0<\mu<1$, $w>0$, $0<\beta<1$ and $0<x<\min\{p,(1-\mu)^w\}$, and suppose $\feas\ne\emptyset$ and
+$\cert(p,\mu,w,\beta,x)<0$. Let $\xi,y_0,\nu,\hat x,\hat y\in(0,1)$ satisfy
+\[
+\xi<\min\{x,\hat x\},\qquad y_0<\hat y,\qquad \nu<\mu.
+\]
+Then there is an integer $L_0$, depending only on these ten numbers, with the following property. Let $C\ge1$, let
+$\ell\ge L_0$, and let a host on $V$ satisfy $\mathrm{Stop}(C,\hat x,\hat y,\ell)$. Let $k,t\ge1$ be integers and
+$X,Y\subseteq V$ disjoint and nonempty with
+\[
+d_R(X,Y)\ge p,\qquad |X|^w|Y|\ge C^{w+1}\xi^{-k}y_0^{-\ell}\nu^{-wt}.
+\]
+Then $X\cup Y$ contains a red $K_k$, or $X$ contains a blue $K_t$, or $Y$ contains a blue $K_\ell$.
+\end{theorem}
+
+The order of quantifiers matters later: $L_0$ is chosen before $C$ and before the host.
+
+\subsection{Two lemmas on books}
+
+\begin{lemma}[good pages]\label{lem:pages}
+Let $(X,Y)$ be maximal with $H=H_c(X,Y)>0$, and let
+\[
+D_r=\frac w{r-w}+1-(1-\beta)^{1/(\beta r)},\qquad \mathcal G=\{v\in X:\pi_v\ge c\}.
+\]
+Then $1-|\mathcal G|/|X|\le D_r$.
+\end{lemma}
+
+\begin{proof}
+For $t>1$, the rows with $\pi_v\ge c+Ht$ form a set $A$ whose column densities average at least $c+Ht$, so
+$H_c(A,Y)\ge Ht$ by the power-mean inequality. Maximality gives $(|A|/N)^wt^r\le1$, so
+$\Prob_X(\pi_v\ge c+Ht)\le t^{-r/w}$. The layer-cake formula gives $\E_X(\pi_v-c-H)_+\le Hw/(r-w)$. Since
+$\E_X\pi_v=c+\alpha$ and $\alpha\ge(1-\beta)^{1/s}H$ (Lemma~\ref{lem:columns}),
+\[
+\E_X(c+H-\pi_v)_+=\E_X(\pi_v-c-H)_+-(\alpha-H)\le D_rH.
+\]
+A row outside $\mathcal G$ has $(c+H-\pi_v)_+>H$, so Markov's inequality gives the claim.
+\end{proof}
+
+\begin{lemma}[blue book with good pages]\label{lem:book}
+Let $X$ be a nonempty vertex set of a host, $N=|X|$, and $\mathcal G\subseteq X$. Let $0<\theta<\tau<1$, $D$ real, and
+$b\le m$ positive integers with
+\[
+1-\frac{|\mathcal G|}N\le D\le\frac14,\qquad \frac mN\le\frac14,\qquad D+\frac mN+\frac bm\le\tau-\theta.
+\]
+Let $W$ be the set of $v\in X$ with at least $\tau N$ blue neighbours in $X$. If $|W|\ge R(k,m)$, then $X$ contains a
+red $K_k$, or there are disjoint $S,T\subseteq X$ such that $S$ is a blue clique of exactly $b$ vertices, all $S$--$T$
+edges are blue, $T\subseteq\mathcal G$, and $|T|\ge\theta^bN/2$.
+\end{lemma}
+
+\begin{proof}
+If $W$ has no red $K_k$, it has a blue clique $U$ with $|U|=m$. Let $P=\mathcal G\setminus U$; then
+$|P|\ge(1-D)N-m\ge N/2$. Each $u\in U$ has at least $(\tau-D)N-m$ blue neighbours in $P$, so the blue density $\sigma$
+between $U$ and $P$ satisfies $\sigma\ge\tau-D-m/N\ge\theta+b/m$. Choose a $b$-subset $S\subseteq U$ uniformly at random,
+and let $T$ be the set of $v\in P$ joined in blue to all of $S$. If $v$ has $j_v$ blue neighbours in $U$, then
+$\Prob(v\in T)=\binom{j_v}b/\binom mb$. The piecewise-linear interpolation of $j\mapsto\binom jb$ is nondecreasing and
+convex, so by Jensen's inequality
+\[
+\E|T|\ge|P|\frac{\binom{\lfloor\sigma m\rfloor}b}{\binom mb}\ge|P|\Big(\sigma-\frac bm\Big)^b\ge\frac N2\,\theta^b,
+\]
+since each factor $(\lfloor\sigma m\rfloor-i)/(m-i)$ with $0\le i<b$ is at least $\sigma-b/m>0$. Some choice of $S$
+achieves the expectation.
+\end{proof}
+
+\subsection{The local alternative}
+
+For $v\in X$ write $B_v$ for the blue neighbourhood of $v$ in $X$, $q_v=|B_v|/|X|$, $R_v$ for its red neighbourhood in
+$X$, and $Y_v$ for its red neighbourhood in $Y$.
+
+\begin{lemma}\label{lem:local}
+Fix an integer $N_0$ with $N_0(1-\mu)>1$. Under the hypotheses of Theorem~\ref{thm:closure} on $p,\mu,w,\beta,x$, there
+are $\eta,\tau,\zeta>0$ and $R_0$ with $\eta<\min\{p,1-p\}$, $\mathrm{cap}:=\mu+\tau<1-1/N_0$, $R_0>w$ and $\beta R_0>1$,
+such that the following holds for every $r\ge R_0$. Let $(X,Y)$ be maximal for $\Phi_c$ with $|c-p|\le\eta$,
+$N=|X|\ge N_0$, $H>0$, and at most $\zeta N$ rows with $q_v>\mathrm{cap}$. Then for every
+$\Delta\ge(1-c)/(N(1-\mathrm{cap})-1)$ and $c'=c-\Delta$,
+\begin{itemize}
+\item[(RED)] some $v$ with $q_v\le\mathrm{cap}$ has $\Phi_{c'}(R_v,Y_v)\ge x\,\Phi_c(X,Y)$, or
+\item[(BLUE)] some $v$ has $\Phi_c(B_v,Y)\ge\mu^w\Phi_c(X,Y)$.
+\end{itemize}
+\end{lemma}
+
+\begin{proof}
+Take $\eta,\tau,\zeta,R_0$ from Theorem~\ref{thm:envelope} and shrink $\eta,\tau$ as required; shrinking keeps the
+theorem true. Suppose both alternatives fail. Apply Theorem~\ref{thm:envelope} with $\mathcal B$ the blue graph. Its
+condition (i) is Lemma~\ref{lem:columns}. Failure of (BLUE) at $v$ with $q_v>0$ reads $q_v^wH_c(B_v,Y)^r<\mu^wH^r$; raising
+to the power $\beta$ gives~\eqref{eq:B}.
+
+Now let $X_g=\{v:q_v\le\mathrm{cap}\}$ and fix $v\in X_g$. Put $\sigma_v=|R_v|/N=1-1/N-q_v>0$, and let $\rho_y$ be the
+red density from $R_v$ to $y$. Counting red neighbours of $y\in Y_v$ in $X=\{v\}\cup B_v\cup R_v$ gives
+$Ng_y=1+q_vNb_v(y)+\sigma_vN\rho_y$, so
+\[
+\sigma_v(\rho_y-c')=(1-q_v)u_y-q_v(b_v(y)-g_y)+\Big[\sigma_v\Delta-\frac{1-c}N\Big],
+\]
+and the bracket is nonnegative by the choice of $\Delta$. With $a_y=u_y/H$ and $J=\E_Ya_y^{s-1}>0$ we have
+$\E_Y[h_{vy}a_y^{s-1}]=HV_v+cJ$, which is positive because $V_v\ge1-w/r>0$ (Lemma~\ref{lem:rows}) and $c\ge p-\eta>0$.
+So $Y_v\ne\emptyset$.
+Failure of (RED) at $v$, raised to the power $\beta$, gives
+\[
+\sum_{y\in Y_v}(\rho_y-c')_+^s<x^\beta\sigma_v^{-w\beta}\pi_v^{1-\beta}\sum_{y\in Y}u_y^s.
+\]
+Using the identity and $\sigma_v\le1-q_v$, this implies~\eqref{eq:R} at $v$. So all hypotheses of
+Theorem~\ref{thm:envelope} hold, a contradiction.
+\end{proof}
+
+\subsection{Proof of Theorem~\ref{thm:closure}}
+
+\paragraph{Parameters.} Choose $\lambda,y$ with $\xi<\lambda<\min\{x,\hat x\}$ and $y_0<y<\hat y$. Take
+$N_0,\eta,\tau,\zeta,R_0,\mathrm{cap}$ from Lemma~\ref{lem:local}, and $\theta$ with $\mu<\theta<\mathrm{cap}$. Fix
+$r\ge R_0$ so large that $D_r<\min\{1/4,(\mathrm{cap}-\theta)/2\}$. Fix $0<\delta<\min\{p/2,\eta\}$, and for $n\ge2$
+let $c_n=p-\delta/n$ and $\Phi_n=\Phi_{c_n}$. Put
+\[
+\mathcal A=\min\{\lambda/\xi,(\mu/\nu)^w\}>1,\quad h=\mathrm{cap}-\theta-D_r>0,\quad
+a_0=\min\Big\{\frac1w\log\frac{\hat x}\lambda,\frac1w\log\frac{\hat y}y,\log\frac1\mu\Big\}>0,
+\]
+and, for $n\ge4$,
+\[
+b_n=\max\Big\{1,\Big\lceil\frac{r\log(n^2/\delta)+w\log2}{w\log(\theta/\mu)}\Big\rceil\Big\},\qquad
+m_n=\Big\lceil\frac{2b_n}h\Big\rceil.
+\]
+Both are $O(\log n)$, and $b_n\le m_n$. Let $\kappa_0=\inf_{n\ge2}\mathcal A^n/n^r>0$. For $2\le k\le n$ we have
+$R(k,m)\le n^{m-1}$ by Erd\H{o}s--Szekeres, and $n^{m_n-1}=e^{O((\log n)^2)}$, so
+\[
+K_1=\sup_{n\ge4}e^{-a_0n}\max\Big\{N_0,\ 4m_n,\ \frac{2m_n}h,\ \frac{n^{m_n-1}}\zeta,\
+\frac{1+n(n-1)/\delta}{1-\mathrm{cap}}\Big\}<\infty.
+\]
+Let $L_0$ be an integer with $(y/y_0)^{L_0}\delta^r\kappa_0\ge1$ and $e^{a_0L_0}\ge K_1$.
+
+\paragraph{The induction.} Fix $C\ge1$, $\ell\ge L_0$ and a host satisfying $\mathrm{Stop}(C,\hat x,\hat y,\ell)$. We
+prove by strong induction on $n=k+t$:
+\begin{quote}
+$(I_n)$ every disjoint nonempty pair $X,Y$ with $\Phi_n(X,Y)\ge C^{w+1}\lambda^{-k}y^{-\ell}\mu^{-wt}$ has an
+\emph{outcome}: a red $K_k$ in $X\cup Y$, a blue $K_t$ in $X$, or a blue $K_\ell$ in $Y$.
+\end{quote}
+If $k=1$ or $t=1$, any vertex of $X$ is an outcome.
+
+\emph{The theorem follows from $(I_n)$.} Given $X,Y$ as in the theorem, $H_{c_n}(X,Y)\ge d_R(X,Y)-c_n\ge\delta/n$ by the
+power-mean inequality. Hence
+\[
+\frac{\Phi_n(X,Y)}{C^{w+1}\lambda^{-k}y^{-\ell}\mu^{-wt}}\ge\Big(\frac\delta n\Big)^r\Big(\frac\lambda\xi\Big)^k
+\Big(\frac y{y_0}\Big)^\ell\Big(\frac\mu\nu\Big)^{wt}\ge\Big(\frac y{y_0}\Big)^\ell\delta^r\frac{\mathcal A^n}{n^r}\ge1.
+\]
+
+\emph{Inductive step} ($k,t\ge2$, so $n\ge4$). Among all pairs of nonempty subsets of $X$ and $Y$, choose one that
+maximises $\Phi_n$. It is maximal, its potential is at least $\Phi_n(X,Y)$, and an outcome for it is an outcome for
+$(X,Y)$; rename it $(X,Y)$. Write $N=|X|$, $M=|Y|$ and $H=H_{c_n}(X,Y)\in(0,1]$, so $\Phi_n\le N^wM$.
+
+If $M\ge C\hat x^{-k}\hat y^{-\ell}$, then $Y$ is a proper subset of $V$, and the stopping rule gives a red $K_k$ or a
+blue $K_\ell$ in $Y$. Otherwise $N^wM\ge C^{w+1}\lambda^{-k}y^{-\ell}\mu^{-wt}$ and $M<C\hat x^{-k}\hat y^{-\ell}$ give
+\[
+N>C\Big(\frac{\hat x}\lambda\Big)^{k/w}\Big(\frac{\hat y}y\Big)^{\ell/w}\mu^{-t}\ge e^{a_0(n+\ell)}\ge e^{a_0n}K_1.
+\]
+So $N\ge N_0$, $N\ge4m_n$, $N\ge2m_n/h$, $R(k,m_n)\le\zeta N$ and $N(1-\mathrm{cap})-1\ge n(n-1)/\delta$.
+
+\emph{Book case}: at least $R(k,m_n)$ rows have $q_v\ge\mathrm{cap}$. Lemma~\ref{lem:pages} gives
+$1-|\mathcal G|/N\le D_r$ for $\mathcal G=\{v:\pi_v\ge c_n\}$. Apply Lemma~\ref{lem:book} with $\tau=\mathrm{cap}$,
+$b=b_n$, $m=m_n$; its conditions hold since $D_r+m_n/N+b_n/m_n\le D_r+h=\mathrm{cap}-\theta$. If it gives a red $K_k$
+we are done. Otherwise it gives a blue $b_n$-clique $S$ and a set $T\subseteq\mathcal G$ of at least $\theta^{b_n}N/2$
+pages. If $b_n\ge t$, then $S$ contains a blue $K_t$. If $b=b_n<t$, the columns of $T$ have average red density at least
+$c_n$, so $H_{c_{n-b}}(T,Y)\ge c_n-c_{n-b}\ge\delta/n^2$, and
+\[
+\frac{\Phi_{n-b}(T,Y)}{\Phi_n(X,Y)}\ge2^{-w}\theta^{wb}(\delta/n^2)^r\ge\mu^{wb}
+\]
+by the choice of $b_n$. So $(I_{n-b})$ applies to $(T,Y)$ with targets $(k,t-b)$. A blue $K_{t-b}$ in $T$ together
+with $S$ is a blue $K_t$ in $X$; the other outcomes are outcomes.
+
+\emph{Local case}: fewer than $R(k,m_n)\le\zeta N$ rows have $q_v\ge\mathrm{cap}$. Apply Lemma~\ref{lem:local} with
+$c=c_n$ and $\Delta=c_n-c_{n-1}=\delta/(n(n-1))$, which is large enough. In case (RED),
+$\Phi_{n-1}(R_v,Y_v)\ge x\Phi_n(X,Y)\ge C^{w+1}\lambda^{-(k-1)}y^{-\ell}\mu^{-wt}$, since $x>\lambda$. By $(I_{n-1})$ with
+targets $(k-1,t)$, a red $K_{k-1}$ in $R_v\cup Y_v$ together with $v$ is a red $K_k$; the other outcomes are outcomes.
+In case (BLUE), lowering the shift to $c_{n-1}$ can only increase $H$, so
+$\Phi_{n-1}(B_v,Y)\ge\mu^w\Phi_n(X,Y)\ge C^{w+1}\lambda^{-k}y^{-\ell}\mu^{-w(t-1)}$. By $(I_{n-1})$ with targets
+$(k,t-1)$, a blue $K_{t-1}$ in $B_v$ together with $v$ is a blue $K_t$ in $X$. \qed
+
+%======================================================================
+\section{Profiles and banks}\label{sec:banks}
+%======================================================================
+
+Theorem~\ref{thm:closure} needs a stopping rule, that is, an off-diagonal Ramsey bound on proper subsets of the host.
+This section shows how a finite collection of bounds can supply each other's stopping rules.
+We call this collection a \emph{bank}. It contains bounds without a density restriction, called source pairs,
+and bounds for hosts of a specified density, called profiles. Controls specify the parameters with which the
+local step converts a source bound into a profile.
+
+\paragraph{A two-bound example.}
+Suppose we have two density-dependent bounds, with a common constant $C\ge1$.
+The first says that a host of red density at least $1/2$ contains a red $K_k$ or a blue $K_b$ when
+$|V|\ge Ce^{kL_R(b/k)}$. The second has the same form with a function $L_B$, and can be applied after
+interchanging the colours and the targets. We use both bounds only at ratios in their respective domains.
+
+Put $r=b/k$. Every host has red density at least $1/2$ or blue density at least $1/2$.
+In the first case the required threshold is $Ce^{kL_R(r)}$.
+In the second, interchanging the colours changes the targets to $(b,k)$, so the threshold is
+\[
+Ce^{bL_B(k/b)}=Ce^{k\,rL_B(1/r)}.
+\]
+Thus $|V|\ge Ce^{k\max(L_R(r),\,rL_B(1/r))}$ guarantees a red $K_k$ or a blue $K_b$ without any
+density assumption. For example, at $b=2k$ the two exponents are $kL_R(2)$ and $2kL_B(1/2)$.
+If $L_R(r)=a_R+b_Rr$ and $L_B(s)=a_B+b_Bs$ are positive affine functions on the intervals under consideration,
+then the exponent per $k$ is simply
+\[
+\max\{a_R+b_Rr,\ b_B+a_Br\}.
+\]
+A line $A+Br$ with $A,B>0$ lying above this maximum supplies a source bound on that interval.
+In the full construction, separate comparisons with the Lu--Wang input handle the remaining ratios.
+This example explains both the reciprocal ratio in a colour reversal and the finite line comparisons below.
+
+\paragraph{Why feedback is not circular.}
+A source bound is used by the local step only on a proper subset of the current host.
+Assume all bank claims have been proved for hosts with fewer vertices than $V$.
+We first obtain the profiles that use the local step on $V$. Next we combine these profiles on $V$,
+as in the example, and finally obtain the source bounds on $V$.
+Consequently a source bound may help prove a profile which later helps prove that same source bound:
+the first use is on a smaller host. The full argument below makes this induction simultaneous for all
+claims and chooses one constant $C$ for the finite collection.
+
+\subsection{Controls and profiles}
+
+\begin{definition}[source pairs]
+A \emph{bank} has finitely many \emph{source pairs} $(A_h,B_h)$ with $A_h,B_h>0$. Each pair stands for the claim
+\[
+(\mathrm{SOURCE}_h)\qquad |V|\ge C\,e^{A_hk+B_hb}\ \Longrightarrow\ V\supseteq(k,b)\qquad\text{for all integers }k,b\ge1.
+\]
+We write $T_h(\lambda)=A_h+B_h\lambda$, so that $A_hk+B_hb=k\,T_h(b/k)$.
+\end{definition}
+
+\begin{definition}[controls]
+A \emph{control} is a tuple $\gamma=(p,\mu,w,\beta,x;\sigma;\xi,y_0,\nu)$ with $0<p,\mu,\beta<1$, $w>0$,
+$0<x<\min\{p,(1-\mu)^w\}$, $\feas\ne\emptyset$, $\cert(p,\mu,w,\beta,x)<0$, a source index $\sigma$, and
+$0<\xi<\min\{x,e^{-A_\sigma}\}$, $0<y_0<e^{-B_\sigma}$, $0<\nu<\mu$. We write $p_\gamma=p$, $w_\gamma=w$, and
+$A_\gamma=-\log\xi$, $B_\gamma=-\log y_0$, $b_\gamma=-\log\nu$.
+\end{definition}
+
+A control packages everything Theorem~\ref{thm:closure} needs, with $\hat x=e^{-A_\sigma}$ and $\hat y=e^{-B_\sigma}$.
+The source index says which source claim supplies the stopping rule.
+
+\begin{definition}[profiles]
+A \emph{profile} $P=(p_P,I_P,L_P)$ has a density $p_P\in(0,1)$, a compact interval $I_P\subset(0,\infty)$, and a
+positive continuous piecewise-affine function $L_P$ on $I_P$ with finitely many rational knots. With constant $C\ge1$,
+it stands for the claim
+\[
+(\mathrm{ASSERT}_P)\qquad d_R(V)\ge p_P\ \text{and}\ |V|\ge C\,e^{kL_P(b/k)}\ \Longrightarrow\ V\supseteq(k,b),
+\]
+for all integers $k,b\ge1$ with $b/k\in I_P$ and every host $V$.
+\end{definition}
+
+A profile is an exponential Ramsey bound for hosts of red density at least $p_P$, along the ratios $b/k\in I_P$. Note
+that it is stated at integer pairs $(k,b)$.
+
+\subsection{How profiles are justified}
+
+A bank has two kinds of profiles. A \emph{direct} profile is obtained by applying the local step, possibly
+after a sequence of blue steps. A \emph{combined} profile is obtained by combining direct bounds on the same
+host, as in the two-bound example. The certificate labels these kinds RAW and CLOSED, respectively.
+Both kinds are proved by the bank validity theorem; the labels describe their derivations, not their proof status.
+A \emph{realization} is the data and inequalities that justify a profile on an interval of ratios.
+We now describe the derivations used in the certificate.
+
+\begin{definition}[direct realizations]
+Each direct profile $P$ has a finite cover of $I_P$ by closed intervals $J$. Each $J$ carries a margin $\varepsilon_J>0$
+and one of the following.
+\begin{enumerate}[leftmargin=*]
+\item \emph{Leaf.} A control $\gamma$ with $p_\gamma\le p_P$, such that on $J$
+\[
+L_P(r)\ge\varepsilon_J+\frac{A_\gamma+r\,(B_\gamma+w_\gamma b_\gamma)}{1+w_\gamma}.
+\]
+\item \emph{Retained route.} A control $\gamma$ with $\pi:=p_\gamma<p_P$; a partition
+$\theta=u_0<u_1<\dots<u_M=\omega$ with $\theta>0$ and $J\subseteq[\theta,\omega]$; for each cell $J_j=[u_{j-1},u_j]$ a
+slope $d_j$ and a \emph{child} profile $c(j)$ (any direct or combined profile of the bank) with $J_j\subseteq I_{c(j)}$; and
+the continuous function $\psi$ on $[\theta,\omega]$ with $\psi(\theta)>0$ that is affine with slope $d_j$ on $J_j$.
+These must satisfy
+\begin{equation}\label{eq:route}
+d_j>-\log\big(1-p_{c(j)}\big),\qquad \psi(s)>L_{c(j)}(s)\quad(s\in J_j),
+\end{equation}
+and, writing $A,B,b,w$ for $A_\gamma,B_\gamma,b_\gamma,w_\gamma$, on $J$
+\[
+L_P(r)\ge\varepsilon_J+\max\Big(\psi(r),\ \frac{A+rB+w\big(\theta b+\psi(r)-\psi(\theta)\big)}{1+w}\Big).
+\]
+\end{enumerate}
+\end{definition}
+
+A leaf applies Theorem~\ref{thm:closure} directly to a balanced cut. A route first spends blue steps along the ratio
+interval $[\theta,r]$, at the cost recorded by $\psi$, and applies a child profile whenever the current set is dense
+enough in red. Only when the blue target has dropped to $\theta k$ does it apply the local step. The density $\pi$ of
+the terminal control is strictly below $p_P$; the gap pays for keeping only the rows with red density at least $\pi$.
+
+\begin{definition}[combined realizations]
+Each combined profile $Q$ has a finite cover of $I_Q$ by closed intervals $J$, each carrying one of the following.
+Only direct profiles are used in these combinations, and the inequalities are non-strict.
+\begin{enumerate}[leftmargin=*]
+\item \emph{Density copy.} A direct profile $R$ with $p_R\le p_Q$, $J\subseteq I_R$ and $L_Q\ge L_R$ on $J$.
+\item \emph{Complementary pair.} Direct profiles $R,S$ with $p_R+p_S\le1$, $J\subseteq I_R$, $\{1/r:r\in J\}\subseteq I_S$ and
+$L_Q(r)\ge\max\big(L_R(r),\,r\,L_S(1/r)\big)$ on $J$.
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[source covers]
+For each source pair $h$ fix $0<\ell_h<H_h$ and $\varepsilon_h,\eta_h>0$ with
+\begin{equation}\label{eq:tail}
+\fh(\lambda)\le T_h(\lambda)-\varepsilon_h(1+\lambda)\qquad(\lambda\in(0,\ell_h]\cup[H_h,\infty)),
+\end{equation}
+and a finite cover of $[\ell_h,H_h]$ by closed intervals $J$. Each $J$ is either \emph{grounded}, with
+$\fh\le T_h-\eta_h(1+\lambda)$ on $J$, or carries two profiles $P_R,P_B$ with $p_{P_R}+p_{P_B}\le1$, $J\subseteq I_{P_R}$,
+$\{1/\lambda:\lambda\in J\}\subseteq I_{P_B}$ and
+\[
+\max\big(L_{P_R}(\lambda),\,\lambda L_{P_B}(1/\lambda)\big)\le T_h(\lambda)-\eta_h(1+\lambda)\qquad(\lambda\in J).
+\]
+\end{definition}
+
+The source covers are where the feedback happens: a source pair may be justified partly by the Lu--Wang function and
+partly by the bank's own profiles.
+
+\subsection{Validity of a bank}
+
+\begin{theorem}[bank validity]\label{thm:bank}
+Consider a bank whose direct profiles, combined profiles and source pairs have realizations and covers as above. Then there
+is $C_*\ge1$ such that, with $C=C_*$, every claim $(\mathrm{ASSERT}_P)$ and every claim $(\mathrm{SOURCE}_h)$ holds for
+every host.
+\end{theorem}
+
+The dependencies between profiles and sources may form cycles. The theorem is still true because every dependency is
+used on a strictly smaller host. The proof is an induction on the number of vertices of the host.
+
+For $C\ge1$ and a host $V$, let $\mathcal P_V(C)$ be the statement that every bank claim, with constant $C$, holds on
+every proper subset $Z\subsetneq V$, under both namings of the colours.
+
+\begin{lemma}[leaves and routes]\label{lem:leafroute}
+For each leaf or route piece $J$ of a direct profile $P$ there are $K_J\ge1$ and $D_J\ge1$, depending only on the data of
+the piece and not on $C$, with the following property. Let $V$ satisfy $\mathcal P_V(C)$, and fix a naming of the
+colours. If $k\ge K_J$, $b/k\in J$, $d_R(V)\ge p_P$ and $|V|\ge D_JC\,e^{k(L_P(b/k)-\varepsilon_J/2)}$, then
+$V\supseteq(k,b)$.
+\end{lemma}
+
+\begin{proof}
+\emph{The stopping rule.} Let $\gamma$ be the control of the piece, with source index $\sigma$, and put
+$\hat x=e^{-A_\sigma}$, $\hat y=e^{-B_\sigma}$. For every $W\subseteq V$ and every $\ell\ge1$, the host $W$ satisfies
+$\mathrm{Stop}(C,\hat x,\hat y,\ell)$: a proper subset $Z\subsetneq W$ is a proper subset of $V$, and
+$|Z|\ge C\hat x^{-a}\hat y^{-\ell}=Ce^{A_\sigma a+B_\sigma\ell}$ gives $Z\supseteq(a,\ell)$ by
+$(\mathrm{SOURCE}_\sigma)$ on $Z$. The hypotheses of Theorem~\ref{thm:closure} on $(\xi,y_0,\nu,\hat x,\hat y)$ hold
+by the definition of a control, so it gives a threshold $L_0(\gamma)$.
+
+\emph{Leaves} ($D_J=3$). Choose $K_J$ with $\lfloor\alpha k\rfloor\ge\max(1,L_0(\gamma))$ for $k\ge K_J$, where
+$\alpha=\min J$. Let $r=b/k$ and $L=L_P(r)-\varepsilon_J/2$. Since $|V|\ge3Ce^{kL}\ge3$, Lemma~\ref{lem:cut} gives a cut
+$V=X\sqcup Y$ with $d_R(X,Y)\ge d_R(V)\ge p_P\ge p_\gamma$ and $|X|,|Y|\ge Ce^{kL}$. Then
+\[
+\log(|X|^w|Y|)\ge(1+w)\log C+(1+w)kL\ge(1+w)\log C+kA_\gamma+bB_\gamma+wb\,b_\gamma,
+\]
+by the leaf inequality. This is the size hypothesis of Theorem~\ref{thm:closure} with $t=\ell=b\ge L_0(\gamma)$. So
+$X\cup Y$ has a red $K_k$, or $X$ or $Y$ has a blue $K_b$.
+
+\emph{Routes.} Write $E(r)=\max\big(\psi(r),\,(A+rB+w(\theta b+\psi(r)-\psi(\theta)))/(1+w)\big)$ and
+$\varepsilon=\varepsilon_J/2$, so $L_P(r)-\varepsilon_J/2\ge E(r)+\varepsilon=:z$. Let
+$G=\psi+E(r)-\psi(r)+\varepsilon/2$ on $[\theta,r]$, a vertical shift of $\psi$. Then
+\[
+z-G(r)=\varepsilon/2,\qquad z+wG(\theta)-(A+rB+w\theta b)\ge(1+w/2)\varepsilon.
+\]
+Let $V_d=|d_1|+\sum_{j<M}|d_{j+1}-d_j|$, let $\delta_0>0$ be the minimum of $\psi-L_{c(j)}$ over the closed cells, let
+$\eta_0=\min_j(1-p_{c(j)}-e^{-d_j})>0$, and let $\psi_{\min}=\min\psi>0$; all are positive by~\eqref{eq:route}. Put
+$D_J=3(1-\pi)/(p_P-\pi)$, and choose $K_J$ so that for $k\ge K_J$: $\lfloor\theta k\rfloor\ge\max(1,L_0(\gamma))$,
+$k\varepsilon/2>V_d$, $k\delta_0>V_d$, and $\eta_0e^{k\psi_{\min}-V_d}\ge1$.
+
+Suppose $|V|\ge D_JCe^{kz}$. Take the cut $X_0,Y$ of Lemma~\ref{lem:cut} with $d_R(X_0,Y)\ge p_P$, and let $X$ be the
+vertices of $X_0$ with at least $\pi|Y|$ red neighbours in $Y$. Counting red edges gives
+$|X|\ge\frac{p_P-\pi}{1-\pi}|X_0|\ge Ce^{kz}$; also $|Y|\ge Ce^{kz}$, and every nonempty $Z\subseteq X$ has
+$d_R(Z,Y)\ge\pi$. Let $\ell=b$ and $n_0=\lfloor\theta k\rfloor$. For $s\in(\theta,r]$ let $d(s)$ be the slope of $\psi$ on
+the cell containing $s$ (the left cell at a knot). Define $\Gamma(t)=kG(\theta)$ for $t\le n_0$ and
+$\Gamma(t)=kG(\theta)+\sum_{n_0<\tau\le t}d(\tau/k)$ for $n_0<t\le\ell$. Comparing the sum with the integral, one cell
+boundary at a time, gives $|\Gamma(t)-kG(t/k)|\le V_d$ for $n_0<t\le\ell$, and $\Gamma(t)\ge k\psi_{\min}-V_d$
+throughout.
+
+We claim: for $t=1,\dots,\ell$ and every $Z\subseteq X$ with $|Z|\ge Ce^{\Gamma(t)}$, either $Z\cup Y$ has a red
+$K_k$, or $Z$ has a blue $K_t$, or $Y$ has a blue $K_\ell$.
+
+For $t\le n_0$, the terminal gap gives
+$\log(|Z|^w|Y|)\ge(1+w)\log C+k(wG(\theta)+z)>(1+w)\log C+kA+\ell B+wtb$, which is the size hypothesis of
+Theorem~\ref{thm:closure} for $(Z,Y)$ with the control $\gamma$ and $\ell\ge n_0\ge L_0(\gamma)$. For $n_0<t\le\ell$, let
+$s=t/k$ and let $c$ be the child of the cell of $s$. Then $\Gamma(t)\ge kL_c(s)+k\delta_0-V_d>kL_c(s)$. If
+$d_R(Z)\ge p_c$, then $(\mathrm{ASSERT}_c)$ on $Z$, which is a proper subset of $V$, gives $Z\supseteq(k,t)$. Otherwise
+some vertex $v\in Z$ has more than $(1-p_c)(|Z|-1)\ge e^{-d(s)}|Z|$ blue neighbours $Z'$ in $Z$, using $|Z|\ge1/\eta_0$.
+Then $|Z'|\ge Ce^{\Gamma(t-1)}$, and the claim for $t-1$ applied to $Z'$, with $v$ added to a blue $K_{t-1}$, finishes
+the step.
+
+Finally $\Gamma(\ell)\le kG(r)+V_d=kz-k\varepsilon/2+V_d<kz$, so $|X|\ge Ce^{\Gamma(\ell)}$, and the claim with $Z=X$,
+$t=\ell=b$ gives $V\supseteq(k,b)$.
+\end{proof}
+
+\begin{lemma}[combined profiles on the same host]\label{lem:closed}
+Suppose every direct claim holds on the host $V$, under both namings of the colours. Then every combined claim holds on $V$.
+\end{lemma}
+
+\begin{proof}
+Let $r=b/k$ lie in a piece $J$ of $Q$, and let $|V|\ge Ce^{kL_Q(r)}$. For a density copy, $d_R(V)\ge p_Q\ge p_R$ and
+$L_R(r)\le L_Q(r)$, so $(\mathrm{ASSERT}_R)$ applies. For a complementary pair, if $d_R(V)\ge p_R$ then
+$(\mathrm{ASSERT}_R)$ applies at $(k,b)$. Otherwise $d_B(V)>1-p_R\ge p_S$; renaming the colours, $(\mathrm{ASSERT}_S)$ at
+the pair $(b,k)$ has threshold $Ce^{bL_S(k/b)}=Ce^{k\,rL_S(1/r)}\le Ce^{kL_Q(r)}$. In both orientations the outcome is a
+red $K_k$ or a blue $K_b$ in the original names. The complementary case does not use $d_R(V)\ge p_Q$.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:bank}]
+\emph{Constants.} Let $K$ be an integer with $K\ge K_J$ for every leaf and route piece, and
+$K\varepsilon_J/2\ge\log D_J$ for every direct piece. Let $M_I$ be the larger of $1$ and the largest right endpoint of all the
+intervals $I_P$, and let $c_0=\min_h\min(A_h,B_h)>0$. Put
+\[
+C_{\rm prof}=\max\{R(k,b):1\le k<K,\ 1\le b\le M_I(K-1)\},\qquad
+C_{\rm small}=\max_{0\le j\le K-2}j!\,(2/c_0)^j,
+\]
+and $C_{\rm tail}=C_\varepsilon$ from Theorem~\ref{thm:LW} with
+$\varepsilon=\min_h\min(\varepsilon_h,\eta_h)$. Let $C=\max(1,C_{\rm prof},C_{\rm small},C_{\rm tail})$.
+
+\emph{Grounding.} (a) For a profile $P$ and $k<K$ with $b/k\in I_P$, we have $b\le M_I(K-1)$, so
+$|V|\ge Ce^{kL_P(b/k)}\ge C\ge R(k,b)$ gives $V\supseteq(k,b)$ whatever the density. (b) For a source pair $h$,
+if $b/k\notin(\ell_h,H_h)$, then~\eqref{eq:tail} gives $\fh(k,b)+\varepsilon(k+b)\le k\,T_h(b/k)$, so
+Theorem~\ref{thm:LW} proves $(\mathrm{SOURCE}_h)$. The same computation works on grounded cells. (c) If
+$\min(k,b)<K$, write $j=\min(k,b)-1$ and $n=\max(k,b)$; then
+$\binom{n+j-1}j\le(2n)^j\le j!(2/c_0)^je^{c_0n}\le C\,e^{A_hk+B_hb}$, so Erd\H{o}s--Szekeres proves
+$(\mathrm{SOURCE}_h)$.
+
+\emph{Induction.} Suppose some claim fails, and let $V$ be a host of least order on which some claim fails, under some
+naming of the colours. Then $\mathcal P_V(C)$ holds.
+
+\emph{Stage 1: direct claims on $V$.} Let $P$ be direct, $b/k\in I_P$, $d_R(V)\ge p_P$ and $|V|\ge Ce^{kL_P(b/k)}$. If $k<K$,
+use grounding. Otherwise take the piece $J\ni b/k$. Since $k\varepsilon_J/2\ge\log D_J$,
+$|V|\ge D_JCe^{k(L_P(b/k)-\varepsilon_J/2)}$, and Lemma~\ref{lem:leafroute} applies. The same holds with the colours
+renamed.
+
+\emph{Stage 2: combined claims on $V$.} By Stage~1 and Lemma~\ref{lem:closed}.
+
+\emph{Stage 3: source claims on $V$.} By grounding we may assume $k,b\ge K$ and that $\lambda=b/k$ lies in a cell $J$
+carrying profiles $P_R,P_B$. If $d_R(V)\ge p_{P_R}$, then $(\mathrm{ASSERT}_{P_R})$ on $V$ applies, since
+$kL_{P_R}(\lambda)\le k\,T_h(\lambda)=A_hk+B_hb$. Otherwise $d_B(V)>1-p_{P_R}\ge p_{P_B}$, and $(\mathrm{ASSERT}_{P_B})$
+with renamed colours at $(b,k)$ applies, since $b\,L_{P_B}(1/\lambda)=k\lambda L_{P_B}(1/\lambda)\le A_hk+B_hb$.
+
+So every claim holds on $V$, a contradiction. Take $C_*=C$.
+\end{proof}
+
+\begin{corollary}[diagonal bound]\label{cor:diag}
+Suppose a combined profile $Q$ has $1\in I_Q$, and the piece of $Q$ containing $1$ is a complementary pair. Then
+$R(k,k)\le\lceil C_*e^{kL_Q(1)}\rceil$ for every $k\ge1$.
+\end{corollary}
+
+\begin{proof}
+By Theorem~\ref{thm:bank} the direct claims hold on every host, so the proof of Lemma~\ref{lem:closed} applies to every
+host at $(k,k)$. For a complementary pair it never uses the density hypothesis of $Q$.
+\end{proof}
+
+%======================================================================
+\section{The certified bank and the proof of Theorem~\ref{thm:main}}\label{sec:certificate}
+%======================================================================
+
+\subsection{The bank}
+
+The certified bank $\mathcal B^*$ is a finite file of rational numbers (Appendix~\ref{app:data}).
+It records the controls, profiles, and source comparisons needed for Theorem~\ref{thm:bank}.
+We found the data by numerical search, using the bounds produced by one application of the method as inputs
+to further applications. The proof does not depend on the sequence of searches or on their numerical accuracy.
+It depends only on the final file: no floating-point number enters the proof, and every inequality below
+is certified with exact rational or outward-rounded interval arithmetic.
+Table~\ref{tab:bank} lists its contents.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lr}
+\toprule
+object & number\\
+\midrule
+controls & 918\\
+\quad $\beta=999/1000$; $p_\gamma=j/80-10^{-6}$ with $p_\gamma\in[0.0125,0.95]$ & \\
+\quad $\mu\in[1/20,4/5]$; $w\in[1/8,4]$, with $w<1$ for $648$ controls & \\
+source pairs & 2713\\
+\quad of which justified by a single tangent of $\fh$ & 733\\
+\quad of which justified by covers using profiles & 1980\\
+Direct profiles (RAW) & 1902\\
+\quad leaf pieces / route pieces & 9899 / 7284\\
+\quad applications of child profiles in routes & 304\,695\\
+Combined profiles (CLOSED, including the root) & 1003\\
+\quad density-copy pieces / complementary-pair pieces & 9908 / 1686\\
+\bottomrule
+\end{tabular}
+\caption{The certified bank $\mathcal B^*$.}\label{tab:bank}
+\end{table}
+
+The \emph{root} is a combined profile $Q^*$ with $p_{Q^*}=1/2$ and $I_{Q^*}=[1,81/80]$. It has a single piece, a
+complementary pair using the same direct profile $R^*$ in both orientations, with $p_{R^*}=1/2$ and $I_{R^*}=[79/80,81/80]$.
+Thus $p_{R^*}+p_{R^*}=1$, and
+\[
+L_{Q^*}(1)=L_{R^*}(1)=1.252369589401<z^*.
+\]
+
+\subsection{The checks}
+
+The following properties of $\mathcal B^*$ were checked by an exact program. It uses rational arithmetic and
+interval arithmetic with $224$-bit outward rounding for $\log$ and $\exp$; it rejects floating-point input.
+
+\begin{enumerate}[label=(C\arabic*),leftmargin=*]
+\item \emph{Controls.} For each of the $918$ controls: $0<x<\min\{p,(1-\mu)^w\}$; the point $q=\mu$ lies in the
+feasible set $\feas$ (so $\feas\ne\emptyset$); and $\cert(p,\mu,w,\beta,x)<0$. The last check splits $(0,1)$ into
+$8192$ cells, bounds the integrand above on each cell by a certified quantity, and verifies that the resulting upper bound
+for the integral is negative. (The Lean version uses up to $65\,536$ cells for $151$ of the controls.) Also $\xi<x$, $\nu<\mu$, and
+$-\log\xi>A_\sigma$, $-\log y_0>B_\sigma$ for the terminal source.
+\item \emph{Direct pieces.} The leaf and route inequalities, with margins $\varepsilon_J>0$, the density conditions
+$p_\gamma\le p_P$ for leaves and $p_\gamma<p_P$ for routes, the route conditions~\eqref{eq:route}, and the inclusions
+$J_j\subseteq I_{c(j)}$.
+\item \emph{Combined pieces.} The density copy and complementary pair inequalities, densities and domain inclusions,
+including the reflected domains $\{1/r:r\in J\}$.
+\item \emph{Sources.} The tail inequalities~\eqref{eq:tail} and the cover inequalities, with positive margins. Comparisons
+with $\fh$ use tangent lines of $\fh$, which lie above $\fh$ by Lemma~\ref{lem:concave}, and enclosures of $f$ and $f'$
+computed from the Lu--Wang data.
+\item \emph{Root.} $Q^*$ is combined, $1\in I_{Q^*}$, its piece at $1$ is a complementary pair, $L_{Q^*}(1)<z^*$, and
+$e^{z^*}<7/2$. The sharper comparison $e^{z^*}\le34986238/10000000$ is also kernel-checked
+in the final Lean corollary.
+\end{enumerate}
+
+For the finite comparisons between profiles and tangent lines, a common refinement at their knots and at
+the reciprocals of knots of reflected profiles makes each compared function affine on every cell.
+Indeed, if $L(s)=a+bs$ on a cell, then $rL(1/r)=ar+b$ on the reflected cell.
+Checking these comparisons at cell endpoints therefore proves them on whole intervals.
+This argument concerns the profile and tangent-line comparisons, not the integral certificate or the original
+Lu--Wang function $f$. The smallest margin in the source checks is $10^{-12}$;
+combined inequalities are allowed to be tight, and the root inequality
+$L_{Q^*}(1)\ge L_{R^*}(1)$ holds with equality.
+
+\subsection{Proof of Theorem~\ref{thm:main}}
+
+By (C1)--(C4), $\mathcal B^*$ satisfies all hypotheses of Theorem~\ref{thm:bank}.
+In particular, every control satisfies the assumptions of Theorem~\ref{thm:closure}.
+Theorem~\ref{thm:bank} gives a constant $C_*\ge1$.
+By (C5) and Corollary~\ref{cor:diag},
+\[
+R(k,k)\le\big\lceil C_*e^{kL_{Q^*}(1)}\big\rceil
+\le(C_*+1)e^{kL_{Q^*}(1)}\qquad(k\ge1).
+\]
+The second inequality uses $L_{Q^*}(1)>0$.
+Set $\delta=z^*-L_{Q^*}(1)=0.000000100001>0$ and choose
+\[
+K=\max\left\{1,\left\lceil\frac{\log(C_*+1)}{\delta}\right\rceil\right\}.
+\]
+For $k\ge K$, we have $C_*+1\le e^{\delta k}$, and hence $R(k,k)\le e^{z^*k}=b_*^k$.
+The certified comparison $e^{z^*}\le34986238/10000000<7/2$ gives the remaining eventual bounds.
+For all $k\ge1$, taking $C=C_*+1$ gives $R(k,k)\le C e^{z^*k}$. \qed
+
+%======================================================================
+\section{Verification}\label{sec:verification}
+%======================================================================
+
+\subsection{Exact numerical checks}
+
+The search for the certificate and the proof of its validity are separate.
+The search uses floating-point arithmetic to find promising parameters.
+The exact checker then reads the rational data and verifies (C1)--(C5), using outward-rounded enclosures
+for logarithms and exponentials. Its integral bounds include every cell, including those near the endpoints.
+It also checks the feasible-set witness $q=\mu$, all domain restrictions, and all positive margins required
+by Theorem~\ref{thm:bank}. A serial run of the checker, without substituting recorded outputs, passed.
+The Lean development independently proves the finite inequalities needed by the theorem.
+
+\subsection{The Lean formalisation}
+
+The whole argument has been formalised in Lean~4~\cite{Lean4} with Mathlib~\cite{Mathlib}.
+This includes Theorems~\ref{thm:envelope},
+\ref{thm:closure} and~\ref{thm:bank} and all lemmas used. It also includes the finite checks: the bank is translated
+into Lean data, and every inequality of (C1)--(C5), including all $918$ integral certificates, is checked by the Lean
+kernel through \texttt{decide}. We do not use \texttt{native\_decide} for these checks:
+the kernel checks the proof terms rather than trusting the result of compiled evaluation.
+The off-diagonal input, Theorem~\ref{thm:LW}, and the tangent lines of $\fh$ are taken from
+Lu and Wang's Lean development~\cite{LWcode}. That development imports
+\texttt{RamseyLean}~\cite{RamseyLean}, a Lean~4 formalisation of results from the CGMS argument.
+These are mathematical dependencies, not merely sources of numerical data.
+
+Related earlier formalisations include Mehta's Lean~3 proof~\cite{Mehta} and Paulson's Isabelle/HOL
+proof~\cite{Paulson} of the exponential improvement of Campos, Griffiths, Morris and Sahasrabudhe.
+We cite them as prior formal work; their source code is not imported into this Lean~4 proof.
+
+\subsection{Scale and modular checking}
+
+The main development uses Lean~4.33.1, while Lu and Wang's development uses Lean~4.32.1.
+To obtain a checked chain in a single toolchain, we port the relevant modules to Lean~4.32.1.
+In that chain every intermediate statement is supplied by its proof.
+The pinned Mathlib revisions and reproduction instructions are given in Appendix~\ref{app:data}.
+
+The publication archive contains $82\,190$ Lean source files with $4\,979\,699$ lines, occupying about
+$1.82$\,GB before compression. This count excludes the external libraries.
+Most of the source consists of generated certificate data and finite checks, rather than
+handwritten mathematical proofs. The ported theorem closure contains $82\,143$ modules, supplemented by
+$42$ bridge modules connecting the proof to the off-diagonal input.
+
+We do not ask Lean to check all this source as one enormous expression or one compilation unit.
+Each integral certificate is divided into cell computations. Separate modules prove the cell bounds,
+and further modules combine them into bounds for the integral. The finite bank comparisons and the
+off-diagonal input are also split into modules. Lean checks each module after the modules it imports.
+The final modules combine these proved inequalities with the general mathematical theorems.
+
+The count $82\,143$ refers to the ported local proof, not to every imported dependency.
+The project inputs were also compiled from source in a separate clean build, with the pinned Mathlib and
+its library dependencies supplied from their cache. We compared the resulting compiled modules with the
+inputs used by the port. They agreed either byte-for-byte or, for five modules differing in stored source paths,
+through matching hashes of all declaration types and proofs or values, with identical names and kinds.
+The latter comparison is hash-based, not byte-for-byte, and the ported local proof was not rebuilt afterwards.
+Thus verification used separate source builds and comparisons, not one monolithic rebuild.
+
+Lean loads an imported compiled module without checking its proofs again.
+The source compilations provide the proof checks; manifests and build stamps identify the sources and outputs
+to which those checks apply. They do not replace proof checking.
+Appendix~\ref{app:build} gives the complete build counts, comparisons and statement checks.
+
+\subsection{Final statements and axiom checks}
+
+In Lean, \lean{ramseyNumber k l} is the least $N$ such that every simple graph on $N$ vertices
+contains a clique of size $k$ or an independent set of size $l$. A graph represents the red edges of a
+colouring, so an independent set represents a blue clique.
+The sharp theorem \lean{DiagRamsey.diagonal_le_exp_z} states that, for all sufficiently large $k$,
+\[
+(\texttt{ramseyNumber}\ k\ k:\R)
+\le \exp\bigl((626184844701/500000000000:\R)\,k\bigr).
+\]
+The corollary \lean{DiagRamsey.diagonal_le_3p4986238_pow} states
+\[
+\exists\,K:\N,\ \forall\,k:\N,\ K\le k\ \Longrightarrow\
+(\texttt{ramseyNumber}\ k\ k:\R)\le(34986238/10000000:\R)^k.
+\]
+Its proof includes the kernel-checked comparison $e^{z^*}\le34986238/10000000$.
+
+The final axiom reports for the sharp theorem and the $3.4986238^k$ corollary list only
+\[
+\texttt{propext},\quad \texttt{Classical.choice},\quad \texttt{Quot.sound}.
+\]
+These are Lean's standard axioms for propositional extensionality, classical choice and quotient soundness.
+The freshly compiled input theorems \lean{DiagRamsey.lu_wang_uniform_source_bound} and
+\lean{DiagRamsey.lu_wang_lines_P0r12} also use only these three axioms.
+No additional axiom, including \texttt{sorryAx}, occurs in these final theorem reports.
+
+%======================================================================
+\section{Remarks}
+%======================================================================
+
+\paragraph{Tight margins.} The certificate is exact, but its margins are small. The source checks have margins near
+$10^{-12}$. The gap between the root profile exponent and $z^*$ is $0.000000100001$, and the difference
+between $3.4986238$ and $e^{z^*}$ is about $6.2\times10^{-9}$.
+A reimplementation must reproduce sufficiently precise enclosures of $f$; the source comparisons here use
+precision better than $10^{-13}$.
+
+\paragraph{Effectivity.} The constant $C_*$ and the threshold $K$ are not effective, because the constants of
+Theorem~\ref{thm:envelope} come from a compactness argument.
+
+\section*{Acknowledgements}
+
+We thank Zhipeng Lu and Sichen Wang for making their mathematical argument, rational source data, exact checkers
+and Lean development publicly available~\cite{LW,LWcode}. Their formalised off-diagonal bounds are an essential
+input to our proof. We also thank the contributors to \texttt{RamseyLean}~\cite{RamseyLean}, which is imported
+by that development.
+
+We are grateful to the Lean developers~\cite{Lean4} and the Mathlib community~\cite{Mathlib} for the proof
+assistant, mathematical library and proof automation on which our formalisation depends.
+We also acknowledge the contributors to Batteries~\cite{Batteries} and Lean's standard library, which occur among the
+dependencies. We thank Mehta and Paulson for their earlier formalisations of the exponential Ramsey
+improvement~\cite{Mehta,Paulson}.
+
+\appendix
+\section{Data and reproduction}\label{app:data}
+
+The paper, rational certificate, exact checker and Lean sources will be provided at \repository.
+The following hashes identify the data and dependencies independently of that location.
+Paths below are relative to the \texttt{diagonal-ramsey} directory.
+
+\subsection{Data and pinned dependencies}
+
+{\sloppy
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+\small
+\item Lu--Wang source data \lean{data/source.json}: SHA-256
+\texttt{\seqsplit{f3e4a4eaf3f778ae125466eb6d47647a38fd38430fdcdffe8c5f774f9718c08c}}.
+\item Lu--Wang repository commit: \texttt{\seqsplit{5ec98f470c43be747ea638f796d1494f9b4c0177}}.
+\item Rational bank certificate: SHA-256 of the uncompressed file
+\texttt{\seqsplit{bc3c24cf97cb9684b97f76ab7bf0e57775525d550a5dd1424d563900897442bc}}.
+\item \texttt{RamseyLean} revision:
+\texttt{\seqsplit{90e87da214701dd6eb3d56a2c7121839d8269d14}}.
+\item Main development: Lean~4.33.1, Mathlib revision
+\texttt{\seqsplit{0df444a360eaa60ab8c11dca51a86af692955474}}.
+\item Ported development and Lu--Wang input: Lean~4.32.1, Mathlib revision
+\texttt{\seqsplit{520045ab14e26149ee970e2e617ca04b09bde5d6}}.
+\item Publication sources and build manifests: \lean{publication/P0r12/}.
+The archive includes \lean{SharpBound.lean}, \lean{FinalCheck.lean} and the ported theorem closure.
+\item SHA-256 of the recorded port build-output hash list:
+\texttt{\seqsplit{dba4b8956cf2399570162edfe4759767a294592c50fae92b8b690da6263128e5}}.
+\end{itemize}
+\par}
+
+\subsection{Reproducing the modular build}
+
+The modular build instructions are in \lean{verify/README.md}; the entry point is
+\lean{verify/verify.sh}. The default mode, \lean{MODE=single}, regenerates the certificate sources from the frozen
+bank, checks the source manifest, and compiles the ported local proof under Lean~4.32.1, including all certificate,
+bank and source-line modules. Here ``single'' means that each module is built in one toolchain,
+not that the proof is checked as one large expression. The optional \lean{MODE=full} also builds the
+Lean~4.33.1 development separately. Both modes can resume matching completed modules.
+The setup can restore previously compiled input archives. To check these inputs from source, use a clean
+\texttt{.lake} directory with the pinned dependencies, build the Lu--Wang, \texttt{RamseyLean}, bridge and
+shared-definition modules, and compile the generated tangent-line modules separately.
+The recorded clean build and its comparisons with the inputs used by the port are described below.
+The publication archive supplies the sharp theorem sources and the instructions for checking them in the
+ported environment. Both the script and the archive instructions should be read with their pinned toolchain
+and dependency manifests; the two Lean versions are not interchangeable.
+
+The build scripts schedule ready modules according to their memory requirements and preserve completed
+build outputs. A stopped build can therefore resume without recomputing every certificate.
+Generated sources are compared with a recorded manifest, and source/build stamps tie the saved outputs
+to the sources from which they were checked.
+
+\subsection{Recorded builds and comparisons}\label{app:build}
+
+The publication validation matched all $82\,143$ closure stamps and the bridge-source manifests.
+These hashes establish which sources and outputs were used; the mathematical verification comes from
+the Lean kernel checks.
+
+The separate clean input build compiled $770$ modules from source:
+$741$ from the Lu--Wang development, $16$ from \texttt{RamseyLean}, $11$ bridge modules and two shared
+definitions. It also compiled the $31$ tangent-line modules, giving $801$ input modules in total.
+No archived project build outputs were used in this clean build.
+The pinned Mathlib and its library dependencies were supplied from their cache.
+
+We compared the resulting \texttt{.olean} files, which contain Lean's compiled modules,
+with those used by the ported proof.
+Of the $801$ files, $796$ were byte-identical. The other five differed in their stored absolute source-file paths.
+For these five modules, a comparison of all $710$ declarations gave identical names and kinds,
+with matching hashes of their types and of their proofs or values.
+This last comparison is hash-based, not byte-for-byte.
+The ported local proof was not rebuilt after this comparison.
+Thus the verification uses separate source builds and comparisons of their outputs, rather than
+one monolithic rebuild. Lean loads an imported \texttt{.olean} without checking its proofs again;
+source hashes and build stamps alone would not replace the source compilation of these inputs.
+
+The recorded port and publication checks also establish the following:
+\begin{itemize}
+\item all $82\,143$ ported modules compiled, with no unproved \lean{Theorems.*} statement modules remaining
+in the final dependency closure;
+\item the text of the $3.5^k$ statement matches its statement file, and \lean{Composite.lean} elaborates that
+statement against the composed proof;
+\item \lean{SharpBound.lean} compiles the sharp exponential theorem and its rounded corollaries, and
+\lean{FinalCheck.lean} completes the publication check.
+\end{itemize}
+The final theorem and input axiom reports are stated in Section~\ref{sec:verification}.
+
+\begin{thebibliography}{99}
+\bibitem{CGMS} M.~Campos, S.~Griffiths, R.~Morris and J.~Sahasrabudhe, An exponential improvement for diagonal Ramsey,
+\emph{Ann. of Math.} (2) 203 (2026), 869--932.
+\url{https://doi.org/10.4007/annals.2026.203.3.4}.
+\bibitem{ES} P.~Erd\H{o}s and G.~Szekeres, A combinatorial problem in geometry, \emph{Compositio Math.} 2 (1935),
+463--470.
+\bibitem{GNNW} P.~Gupta, N.~Ndiaye, S.~Norin and L.~Wei, Optimizing the CGMS upper bound on Ramsey numbers,
+arXiv:2407.19026, 2024.
+\bibitem{LW} Z.~Lu and S.~Wang, Retained-set descent for diagonal Ramsey numbers, arXiv:2609.14525, 2026.
+\bibitem{LWcode} Z.~Lu and S.~Wang, \emph{Diagonal Ramsey numbers: source data, exact checkers and Lean proofs},
+software repository, revision \texttt{5ec98f47},
+\url{https://github.com/sichen-wang/diagonal-ramsey-numbers}.
+\bibitem{RamseyLean} \texttt{RamseyLean} contributors, \emph{RamseyLean: a Lean~4 formalisation of the CGMS
+Ramsey bounds}, software repository, revision \texttt{90e87da2},
+\url{https://github.com/snorin239/RamseyLean}.
+\bibitem{Mathlib} The mathlib Community, The Lean Mathematical Library, in \emph{Proceedings of the 9th ACM
+SIGPLAN International Conference on Certified Programs and Proofs} (CPP 2020), 367--381.
+\url{https://doi.org/10.1145/3372885.3373824}.
+\bibitem{Lean4} L.~de Moura and S.~Ullrich, The Lean 4 Theorem Prover and Programming Language,
+in \emph{Automated Deduction---CADE 28}, Lecture Notes in Computer Science 12699 (2021), 625--635.
+\url{https://doi.org/10.1007/978-3-030-79876-5_37}.
+\bibitem{Batteries} Batteries contributors, \emph{Batteries: an extended standard library for Lean},
+software repository, \url{https://github.com/leanprover-community/batteries}.
+\bibitem{Mehta} B.~Mehta, \emph{A formal proof of an exponentially better upper bound on Ramsey numbers},
+Lean~3 development, 2023, \url{https://github.com/b-mehta/exponential-ramsey}.
+\bibitem{Paulson} L.~C.~Paulson, An Exponential Improvement for Diagonal Ramsey,
+\emph{Archive of Formal Proofs}, September 2024,
+\url{https://isa-afp.org/entries/Diagonal_Ramsey.html}.
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,55 @@
+name = "LuWangBridge"
+defaultTargets = ["FinalCheck"]
+
+[[require]]
+name = "RamseyCurrent"
+git = "https://github.com/sichen-wang/diagonal-ramsey-numbers"
+rev = "5ec98f47"
+subDir = "lean"
+
+# Options mirror how Q18R2 compiled each group. There are deliberately no package-wide leanOptions.
+
+# The 2 shared Definitions, built by Lake in lean-luwang with autoImplicit = false.
+[[lean_lib]]
+name = "SharedDefinitions"
+globs = ["Definitions.Def_DiagRamsey_Basic", "Definitions.Def_DiagRamsey_LuWangSource"]
+leanOptions = { autoImplicit = false }
+
+# The other 6 Definitions in the closure, compiled by the port with default options.
+[[lean_lib]]
+name = "Definitions"
+globs = ["Definitions.Def_DiagRamsey_Cert", "Definitions.Def_DiagRamsey_JointBank", "Definitions.Def_DiagRamsey_JointBank2",
+         "Definitions.Def_DiagRamsey_NestedMoment", "Definitions.Def_DiagRamsey_SourceBank", "Definitions.Def_DiagRamsey_WeightedHost"]
+
+# The 11 hand-written Bridge modules, built by Lake in lean-luwang with autoImplicit = false.
+[[lean_lib]]
+name = "Bridge"
+globs = ["Bridge.Arrows", "Bridge.Concave", "Bridge.Data", "Bridge.DataDerivs", "Bridge.DataKnots", "Bridge.DataValues",
+         "Bridge.Foundations", "Bridge.KernelRfl", "Bridge.ParseRat", "Bridge.Source", "Bridge.Tangent"]
+leanOptions = { autoImplicit = false }
+
+# Tangent lines, built with `lake env lean -o` and default options.
+[[lean_lib]]
+name = "BridgeLines"
+globs = ["Bridge.TangentLines", "Bridge.P06LinesP0r12", "Bridge.P06LinesP0r12_0", "Bridge.P06LinesP0r12_1", "Bridge.P06LinesP0r12_2", "Bridge.P06LinesP0r12_3", "Bridge.P06LinesP0r12_4", "Bridge.P06LinesP0r12_5", "Bridge.P06LinesP0r12_6", "Bridge.P06LinesP0r12_7", "Bridge.P06LinesP0r12_8", "Bridge.P06LinesP0r12_9", "Bridge.P06LinesP0r12_10", "Bridge.P06LinesP0r12_11", "Bridge.P06LinesP0r12_12", "Bridge.P06LinesP0r12_13", "Bridge.P06LinesP0r12_14", "Bridge.P06LinesP0r12_15", "Bridge.P06LinesP0r12_16", "Bridge.P06LinesP0r12_17", "Bridge.P06LinesP0r12_18", "Bridge.P06LinesP0r12_19", "Bridge.P06LinesP0r12_20", "Bridge.P06LinesP0r12_21", "Bridge.P06LinesP0r12_22", "Bridge.P06LinesP0r12_23", "Bridge.P06LinesP0r12_24", "Bridge.P06LinesP0r12_25", "Bridge.P06LinesP0r12_26", "Bridge.P06LinesP0r12_27", "Bridge.P06LinesP0r12_28"]
+
+# Port tree, built with plain `lean -o` and default options.
+[[lean_lib]]
+name = "Lemmas"
+globs = ["Lemmas.+"]
+
+[[lean_lib]]
+name = "Solutions"
+globs = ["Solutions.+"]
+
+# Q18R2_exp_z/Tight.lean verbatim: R(k,k) <= 3.4986238^k and e^{zk}.
+[[lean_lib]]
+name = "SharpBound"
+roots = ["SharpBound"]
+
+# Default target: statement re-elaboration and axioms checks.
+[[lean_lib]]
+name = "FinalCheck"
+roots = ["FinalCheck"]
+
+# Theorems/ (the statement, ending in sorry by design) is deliberately in no library.

@@ -1,0 +1,31 @@
+{
+ "bank": "research/hermann-joseph/p05/record/bank_r12_rootpair.json.gz",
+ "bank_json_sha256": "bc3c24cf97cb9684b97f76ab7bf0e57775525d550a5dd1424d563900897442bc",
+ "files": {
+  "research/hildegard-of-bingen/joint_bank_certificate_v5.py": "f46f4b707a60125156fd569aab936145ccbb77c27ea50a73c1a5782176c0b783",
+  "research/hildegard-of-bingen/finite_sharp_certificate.py": "371922b8be5fd4c4df3e465bba9decf8b4262d743860818b9ee95535737a7ca2",
+  "research/anselm-of-canterbury/sharp_control_fast_classical.py": "d4cc13ed19569e1558ed8a2966160844074f171f0359632fa3ead5ccc39c09fd",
+  "research/anselm-of-canterbury/sharp_control_monotone.py": "f2017d1f74e922d3383ca48b16fa1079442197068c30aebe751c3c20ee23eb56",
+  "ref/proof/ramsey_verify/intervals.py": "2a95901712cce1ff3330a3bd5cc5479c2b05e816cc1f5b6415d58892b4b42d88",
+  "ref/data/source.json": "f3e4a4eaf3f778ae125466eb6d47647a38fd38430fdcdffe8c5f774f9718c08c"
+ },
+ "shard_files": [
+  "ctl_W4-0.jsonl",
+  "ctl_W4-1.jsonl",
+  "ctl_W4-2.jsonl",
+  "ctl_W4-3.jsonl"
+ ],
+ "ref_commit": "5ec98f470c43be747ea638f796d1494f9b4c0177",
+ "exception": null,
+ "status": "PASS_EXACT_JOINT_BANK",
+ "exponent": "626184844701/500000000000",
+ "below_three_point_five": true,
+ "controls": 918,
+ "empty_domain_controls": [],
+ "gate_pass": true,
+ "wall_sec": 281.1,
+ "intervals_loaded": "/home/user/ten-thousand-agents/diagonal-ramsey/ref/proof/ramsey_verify/intervals.py",
+ "supports_loaded": "/home/user/ten-thousand-agents/diagonal-ramsey/ref/proof/ramsey_verify/supports.py",
+ "BITS": 224,
+ "provenance_ok": true
+}

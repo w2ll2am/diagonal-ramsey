@@ -1,0 +1,14 @@
+[2026-10-06T18:30:13Z] verify P0r12: J=96 J_CERT=96 J_BANK=46 RAM=739GB EXPECT=pass MODE=single PORT_JOBS=1024 steps=[setup gen manifest lines port] commit=5d078f4b1c3bd77192b8208f3ffc368226ac3368
+[2026-10-06T18:35:36Z] setup done
+[2026-10-06T18:46:19Z] gen done: bank Lean + 918 controls
+[2026-10-06T18:46:21Z] manifest OK (82122 files)
+[2026-10-06T18:48:30Z] lines done
+'DiagRamsey.diagonal_le_three_point_five_pow' depends on axioms: [propext, Classical.choice, Quot.sound]
+
+resume: 0 modules up to date (skipped)
+82143/82143 modules compile under 4.32.1
+statement text MATCH
+Composite.lean (Theorems statement elaborated against the composite theorem): OK
+[2026-10-06T22:33:44Z] PASS: DiagRamsey.diagonal_le_three_point_five_pow depends on axioms [propext, Classical.choice, Quot.sound]
+[2026-10-06T22:33:44Z] verify P0r12: steps [setup gen manifest lines port] done
+RUN_EXIT=0

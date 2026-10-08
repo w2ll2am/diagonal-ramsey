@@ -1,0 +1,47 @@
+{
+ "bank": "record/bank_r12_rootpair.json.gz",
+ "G5": {
+  "intervals_file": "/home/user/ten-thousand-agents/diagonal-ramsey/ref/proof/ramsey_verify/intervals.py",
+  "supports_file": "/home/user/ten-thousand-agents/diagonal-ramsey/ref/proof/ramsey_verify/supports.py",
+  "BITS": 224,
+  "intervals_sha256": "2a95901712cce1ff3330a3bd5cc5479c2b05e816cc1f5b6415d58892b4b42d88",
+  "ok": true
+ },
+ "controls": 918,
+ "G3_inventory": {
+  "raw_pieces": {
+   "leaf": 9899,
+   "route": 7284
+  },
+  "closed_pieces": {
+   "raw_density": 9908,
+   "complementary_raw": 1686
+  },
+  "source_cells": {
+   "grounded_tangent": 733,
+   "original_tangent": 254371,
+   "profile_pair": 1238773
+  }
+ },
+ "G4": {
+  "root": {
+   "profile": "QROOT",
+   "exponent": "626184844701/500000000000"
+  },
+  "kind": "closed",
+  "p": "1/2",
+  "pieces_at_1": [
+   {
+    "kind": "complementary_raw",
+    "lo": "1",
+    "hi": "81/80",
+    "red": "R12_39_79",
+    "blue": "R12_39_79"
+   }
+  ],
+  "ok": true
+ },
+ "failures": {},
+ "n_failures": {},
+ "all_pass": true
+}
